@@ -1,0 +1,2816 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 行李箱打包檢查員 🧳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFF8EF;
+  --bg-dots:#FFEEDB;
+  --card:#FFFFFF;
+  --ink:#4A3B32;
+  --ink-soft:#8C7B6E;
+  --peach:#FFB35C;
+  --peach-deep:#F2913D;
+  --mint:#7ED8C3;
+  --mint-deep:#3FBFA2;
+  --berry:#FF7E95;
+  --berry-deep:#F25C77;
+  --sky:#8EC9FF;
+  --sky-deep:#5BA8F0;
+  --lilac:#C7B3F5;
+  --lilac-deep:#9678E8;
+  --risk-low:#E8F8F0;
+  --risk-low-ink:#2F9E6E;
+  --risk-mid:#FFF4DB;
+  --risk-mid-ink:#C98315;
+  --risk-high:#FFE7EA;
+  --risk-high-ink:#E0395B;
+  --radius:22px;
+  --shadow:0 8px 24px rgba(120,90,60,.10);
+  --sidebar-w:248px;
+  font-size:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"Noto Sans TC",sans-serif;
+  background:var(--bg);
+  background-image:radial-gradient(var(--bg-dots) 2.2px, transparent 2.2px);
+  background-size:26px 26px;
+  color:var(--ink);
+  line-height:1.65;
+}
+
+/* =========================================================
+   版面：側邊欄 + 主內容
+========================================================= */
+.layout{display:flex;min-height:100vh}
+aside.sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:var(--card);
+  border-right:1.5px solid #F2E3CE;
+  padding:22px 14px 90px;
+  position:fixed;top:0;left:0;bottom:0;
+  overflow-y:auto;z-index:40;
+  transition:transform .25s ease;
+}
+.side-logo{
+  font-family:"Baloo 2","Noto Sans TC",sans-serif;
+  font-weight:900;font-size:1.1rem;line-height:1.3;
+  padding:6px 10px 16px;display:flex;align-items:center;gap:8px;
+}
+.side-logo .emo{font-size:1.5rem}
+.nav-group{
+  font-size:.72rem;font-weight:900;color:var(--ink-soft);
+  letter-spacing:.12em;padding:14px 10px 6px;
+}
+.nav-btn{
+  display:flex;align-items:center;gap:9px;width:100%;
+  font-family:inherit;font-size:.93rem;font-weight:700;color:var(--ink);
+  background:transparent;border:none;border-radius:14px;
+  padding:10px 12px;cursor:pointer;text-align:left;
+  transition:all .15s;position:relative;
+}
+.nav-btn:hover{background:#FFF3E2;transform:translateX(3px)}
+.nav-btn.active{
+  background:linear-gradient(135deg,#FFE9CE,#FFDDE3);
+  color:#A8542B;box-shadow:inset 0 0 0 1.5px #F5C9A0;
+}
+.nav-btn.locked{opacity:.45}
+.nav-btn.locked::after{content:"🔒";margin-left:auto;font-size:.75rem}
+.nav-btn .nbadge{
+  margin-left:auto;font-size:.7rem;font-weight:900;
+  border-radius:99px;padding:1px 8px;
+  background:#F2EADB;color:var(--ink-soft);
+}
+.nav-btn .nbadge.alert{background:var(--risk-high);color:var(--risk-high-ink)}
+.nav-btn .nbadge.good{background:var(--risk-low);color:var(--risk-low-ink)}
+.nav-btn.urgent-style{
+  background:linear-gradient(135deg,#FFF1DE,#FFE9EC);
+  box-shadow:inset 0 0 0 1.5px #F5C9A0;
+}
+main{
+  flex:1;margin-left:var(--sidebar-w);
+  padding:30px 26px 110px;max-width:920px;
+}
+
+/* 手機列 */
+.topbar{
+  display:none;position:fixed;top:0;left:0;right:0;z-index:35;
+  background:rgba(255,248,239,.92);backdrop-filter:blur(8px);
+  border-bottom:1.5px solid #F2E3CE;
+  padding:12px 16px;align-items:center;gap:12px;
+}
+.topbar .ham{
+  border:none;background:var(--card);border-radius:12px;
+  width:40px;height:40px;font-size:1.2rem;cursor:pointer;
+  box-shadow:var(--shadow);
+}
+.topbar .ttl{font-family:"Baloo 2","Noto Sans TC",sans-serif;font-weight:900}
+.tabbar{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:35;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(8px);
+  border-top:1.5px solid #F2E3CE;
+  justify-content:space-around;padding:8px 4px calc(8px + env(safe-area-inset-bottom));
+}
+.tab-btn{
+  border:none;background:transparent;cursor:pointer;
+  font-family:inherit;font-size:.68rem;font-weight:700;color:var(--ink-soft);
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:4px 10px;border-radius:12px;position:relative;
+}
+.tab-btn .te{font-size:1.25rem}
+.tab-btn.active{color:var(--peach-deep);background:#FFF3E2}
+.tab-btn .tdot{
+  position:absolute;top:0;right:4px;min-width:16px;height:16px;
+  background:var(--berry-deep);color:#fff;border-radius:99px;
+  font-size:.62rem;font-weight:900;display:flex;align-items:center;justify-content:center;
+  padding:0 4px;
+}
+.side-mask{display:none;position:fixed;inset:0;background:rgba(74,59,50,.4);z-index:38}
+
+/* 頁面切換 */
+.page{display:none}
+.page.active{display:block;animation:fadeUp .4s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.page-head{margin-bottom:22px}
+.page-head .crumb{font-size:.78rem;font-weight:900;color:var(--peach-deep);letter-spacing:.1em;margin-bottom:4px}
+.page-head h1{
+  font-family:"Baloo 2","Noto Sans TC",sans-serif;
+  font-size:clamp(1.5rem,3.5vw,2.1rem);font-weight:900;
+}
+.page-head p{color:var(--ink-soft);font-size:.95rem;margin-top:4px}
+.step-nav{display:flex;justify-content:space-between;gap:12px;margin-top:26px;flex-wrap:wrap}
+.step-nav .spacer{flex:1}
+
+/* Toast */
+.toast{
+  position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);
+  background:#4A3B32;color:#fff;font-size:.9rem;font-weight:700;
+  padding:11px 22px;border-radius:99px;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  opacity:0;pointer-events:none;transition:all .3s;z-index:60;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* =========================================================
+   卡片與表單（沿用原風格）
+========================================================= */
+.card{
+  background:var(--card);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:26px 24px;margin-bottom:22px;
+  border:1.5px solid #F5E6D5;position:relative;
+}
+.card-title{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  font-family:"Baloo 2","Noto Sans TC",sans-serif;
+  font-size:1.25rem;font-weight:800;margin-bottom:16px;
+}
+.card-title .icon{
+  width:40px;height:40px;border-radius:13px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.25rem;flex-shrink:0;
+}
+.icon.peach{background:#FFE9CE}
+.icon.mint{background:#DDF6EF}
+.icon.berry{background:#FFE3E8}
+.icon.sky{background:#E1F0FF}
+.icon.lilac{background:#EFE9FC}
+.section-sub{font-weight:900;font-size:.98rem;margin:20px 0 10px;display:flex;align-items:center;gap:6px}
+.section-sub:first-of-type{margin-top:0}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.field{display:flex;flex-direction:column;gap:8px}
+.field.full{grid-column:1/-1}
+label.flabel{font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:6px}
+input[type=text],input[type=number],select{
+  font-family:inherit;font-size:1rem;color:var(--ink);
+  border:2px solid #F0DFC9;border-radius:14px;
+  padding:11px 14px;background:#FFFDF9;outline:none;
+  transition:border .2s, box-shadow .2s;width:100%;
+}
+input:focus,select:focus{border-color:var(--peach);box-shadow:0 0 0 4px #FFE9CE}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{position:relative;cursor:pointer;user-select:none}
+.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip span{
+  display:inline-flex;align-items:center;gap:6px;
+  border:2px solid #F0DFC9;background:#FFFDF9;
+  border-radius:999px;padding:8px 16px;
+  font-size:.95rem;font-weight:500;transition:all .18s;
+}
+.chip:hover span{transform:translateY(-2px);box-shadow:var(--shadow)}
+.chip input:checked + span{background:var(--mint);border-color:var(--mint-deep);color:#fff;font-weight:700;box-shadow:0 4px 12px rgba(63,191,162,.35)}
+.chip.transport input:checked + span{background:var(--sky);border-color:var(--sky-deep);box-shadow:0 4px 12px rgba(91,168,240,.35)}
+.chip.style input:checked + span{background:var(--lilac-deep);border-color:var(--lilac-deep);box-shadow:0 4px 12px rgba(150,120,232,.35)}
+.chip.body input:checked + span{background:var(--berry);border-color:var(--berry-deep);box-shadow:0 4px 12px rgba(242,92,119,.3)}
+.chip.lodging input:checked + span{background:var(--peach);border-color:var(--peach-deep);box-shadow:0 4px 12px rgba(242,145,61,.35)}
+.chip-hint{font-size:.78rem;color:var(--ink-soft);margin-top:4px}
+
+.btn{
+  font-family:"Baloo 2","Noto Sans TC",sans-serif;
+  font-weight:800;font-size:1.02rem;letter-spacing:.05em;
+  border:none;border-radius:999px;cursor:pointer;
+  padding:13px 28px;color:#fff;
+  transition:transform .15s, box-shadow .15s, filter .15s;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.btn:hover{transform:translateY(-3px) scale(1.02);filter:brightness(1.05)}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn-main{background:linear-gradient(135deg,var(--peach),var(--berry));box-shadow:0 8px 20px rgba(242,92,119,.35);font-size:1.1rem;padding:15px 34px}
+.btn-mint{background:var(--mint-deep);box-shadow:0 6px 16px rgba(63,191,162,.35)}
+.btn-berry{background:var(--berry-deep);box-shadow:0 6px 16px rgba(242,92,119,.35)}
+.btn-sky{background:var(--sky-deep);box-shadow:0 6px 16px rgba(91,168,240,.35)}
+.btn-ghost{background:#fff;color:var(--ink-soft);border:2px solid #EADCC8;box-shadow:none;font-weight:700}
+.btn-sm{font-size:.85rem;padding:8px 16px}
+
+/* 儀表板 */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px}
+.stat{
+  background:var(--card);border:1.5px solid #F5E6D5;border-radius:18px;
+  padding:18px;box-shadow:var(--shadow);
+}
+.stat .s-label{font-size:.78rem;font-weight:900;color:var(--ink-soft);letter-spacing:.06em}
+.stat .s-value{font-family:"Baloo 2","Noto Sans TC",sans-serif;font-size:1.5rem;font-weight:900;margin-top:4px;line-height:1.25}
+.stat .s-value.danger{color:var(--risk-high-ink)}
+.stat .s-value.good{color:var(--risk-low-ink)}
+.stat .mini-bar{height:8px;background:#F5E8D7;border-radius:99px;overflow:hidden;margin-top:8px}
+.stat .mini-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--mint),var(--mint-deep));transition:width .4s}
+.quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.quick{
+  border:none;cursor:pointer;font-family:inherit;
+  background:var(--card);border:1.5px solid #F5E6D5;border-radius:18px;
+  padding:16px;box-shadow:var(--shadow);text-align:left;
+  transition:all .15s;font-weight:700;color:var(--ink);
+}
+.quick:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(120,90,60,.16)}
+.quick .qe{font-size:1.6rem;display:block;margin-bottom:6px}
+.quick small{display:block;color:var(--ink-soft);font-weight:500;font-size:.78rem;margin-top:2px}
+.welcome{
+  text-align:center;padding:40px 20px;
+}
+.welcome .big{font-size:3.2rem;animation:floaty 3s ease-in-out infinite;display:inline-block}
+.welcome h2{font-family:"Baloo 2","Noto Sans TC",sans-serif;font-weight:900;font-size:1.5rem;margin:10px 0 6px}
+.welcome p{color:var(--ink-soft);margin-bottom:20px}
+
+/* 個人必帶 / 忘帶紀錄 */
+.add-row{display:flex;gap:10px;margin-bottom:12px}
+.add-row input{flex:1}
+.pill-list{display:flex;flex-wrap:wrap;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:7px 8px 7px 16px;font-size:.92rem;font-weight:700;animation:pop .25s ease}
+.pill.mine{background:#FFF1DC;border:1.5px solid #F2CE9A;color:#9A6A1F}
+.pill.forgot{background:#FFE9EC;border:1.5px solid #F5B9C4;color:#B5354F}
+.pill button{
+  border:none;cursor:pointer;width:24px;height:24px;border-radius:50%;
+  font-size:.75rem;font-weight:900;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.9);color:inherit;transition:all .15s;
+}
+.pill button:hover{transform:scale(1.15)}
+.empty-hint{color:var(--ink-soft);font-size:.88rem;font-style:italic}
+
+/* AI thinking */
+.ai-think{display:none;align-items:center;gap:12px;justify-content:center;padding:18px;color:var(--ink-soft);font-weight:500}
+.ai-think.show{display:flex}
+.bouncy{display:flex;gap:5px}
+.bouncy i{width:10px;height:10px;border-radius:50%;background:var(--peach);animation:bnc .9s infinite ease-in-out}
+.bouncy i:nth-child(2){background:var(--mint);animation-delay:.15s}
+.bouncy i:nth-child(3){background:var(--berry);animation-delay:.3s}
+@keyframes bnc{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+/* AI 摘要 */
+.ai-row{display:flex;gap:14px;align-items:flex-start}
+.ai-avatar{
+  width:50px;height:50px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,#FFE3B8,var(--peach));
+  display:flex;align-items:center;justify-content:center;font-size:1.6rem;
+  box-shadow:0 4px 12px rgba(242,145,61,.3);animation:floaty 3s ease-in-out infinite;
+}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ai-bubble{
+  flex:1;background:#FFF8EC;border:1.5px solid #F5DFBC;
+  border-radius:4px 20px 20px 20px;padding:16px 18px;
+  font-size:.98rem;min-height:60px;white-space:pre-line;
+}
+.type-cursor{display:inline-block;width:2px;height:1.05em;background:var(--peach-deep);vertical-align:-2px;margin-left:2px;animation:blink .8s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+#sumSections{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:18px}
+.sum-card{
+  background:#FFFDF6;border:1.5px solid #F0E4CF;border-radius:16px;
+  padding:14px 16px;opacity:0;animation:fadeUp .45s ease forwards;
+}
+.sum-head{font-weight:900;font-size:.95rem;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.sum-text{font-size:.9rem;line-height:1.55}
+.sum-card.q-card{background:#FBF7FF;border-color:#E5DAF8;margin-bottom:0}
+/* 打包小撇步收合 */
+.tips-toggle{
+  width:100%;border:none;background:transparent;cursor:pointer;
+  font-family:inherit;color:inherit;text-align:left;padding:0;
+}
+.tips-toggle .card-title{width:100%}
+.tg-arrow{
+  margin-left:auto;font-size:1rem;color:var(--ink-soft);
+  transition:transform .25s ease;display:inline-block;
+}
+.tg-arrow.closed{transform:rotate(-90deg)}
+#tipsBody.hidden{display:none}
+/* Prompt 透明窗 */
+#promptBody.hidden{display:none}
+.prompt-note{font-size:.88rem;color:var(--ink-soft);margin:14px 0 10px;line-height:1.7}
+.prompt-note b{color:var(--ink)}
+.prompt-meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.prompt-meta span{
+  font-size:.75rem;font-weight:700;border-radius:99px;padding:3px 12px;
+  background:#F2EADB;color:var(--ink-soft);
+}
+.prompt-pre{
+  background:#2E2A26;color:#F5E9D5;border-radius:14px;
+  padding:16px;font-size:.78rem;line-height:1.6;
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  white-space:pre-wrap;word-break:break-all;
+  max-height:340px;overflow-y:auto;
+}
+/* 拍照核對 */
+#photoBody.hidden{display:none}
+.photo-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+#photoPreview{
+  max-width:240px;max-height:200px;border-radius:14px;
+  border:2px solid #E1F0FF;margin:12px 0;display:block;object-fit:cover;
+}
+#photoPreview.hidden{display:none}
+.photo-res{
+  border-radius:16px;padding:14px 16px;margin-top:10px;font-size:.92rem;
+  animation:fadeUp .4s ease;
+}
+.photo-res.ok{background:var(--risk-low);color:#1F6B4A}
+.photo-res.warn{background:var(--risk-mid);color:#8A5E10}
+.photo-res.bad{background:var(--risk-high);color:#A82746}
+.photo-res b{display:block;margin-bottom:4px}
+.photo-res .pr-line{margin-top:6px}
+/* 回顧與學習 */
+.rev-item{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:#FFFDF9;border:1.5px solid #F3E6D3;border-radius:16px;
+  padding:12px 16px;margin-bottom:10px;transition:all .2s;
+}
+.rev-item .rev-name{font-weight:700;flex:1;min-width:140px}
+.rev-btns{display:flex;gap:8px;flex-shrink:0}
+.rev-btn{
+  font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;
+  border-radius:99px;padding:7px 14px;border:1.5px solid #EADCC8;
+  background:#fff;color:var(--ink);transition:all .15s;
+}
+.rev-btn:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.rev-btn.bad:hover{background:var(--risk-high);border-color:#F5B9C4}
+.rev-item.learned{background:#FFF1F3;border-color:#F5C2CC}
+.rev-item.skipped{background:var(--risk-low);border-color:#BCE8D4;opacity:.7}
+.rev-result{font-size:.82rem;font-weight:900}
+.rev-item.learned .rev-result{color:var(--risk-high-ink)}
+.rev-item.skipped .rev-result{color:var(--risk-low-ink)}
+
+/* 清單 */
+.progress-wrap{margin-bottom:16px}
+.progress-text{display:flex;justify-content:space-between;font-size:.9rem;font-weight:700;margin-bottom:6px}
+.progress-bar{height:14px;background:#F5E8D7;border-radius:99px;overflow:hidden}
+.progress-fill{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--mint),var(--mint-deep));transition:width .4s ease}
+.list-add{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+  background:#FAFDFB;border:2px dashed #CDE8DD;border-radius:16px;
+  padding:12px 14px;margin-bottom:14px;
+}
+.list-add input{flex:1;min-width:170px}
+.list-add select{width:auto;flex-shrink:0}
+.list-tools{display:flex;justify-content:flex-end;margin-bottom:14px}
+.cat-block{margin-bottom:22px}
+.cat-block.priority{background:#FFF4F0;border:2px dashed #FFB59E;border-radius:18px;padding:16px}
+.cat-head{display:flex;align-items:center;gap:8px;font-weight:900;font-size:1.05rem;margin-bottom:10px;padding-bottom:6px;border-bottom:2px dashed #F0DFC9}
+.cat-count{margin-left:auto;font-size:.78rem;font-weight:700;background:#F7EFE3;color:var(--ink-soft);border-radius:99px;padding:2px 10px}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
+.item{
+  display:flex;align-items:center;gap:10px;
+  background:#FFFDF9;border:1.5px solid #F3E6D3;
+  border-radius:14px;padding:9px 12px;cursor:pointer;
+  transition:all .18s;font-size:.95rem;
+}
+.item:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--peach)}
+.item.is-forgot{background:#FFF5F7;border-color:#F5C2CC}
+.item.is-mine{background:#FFFAEF;border-color:#F0D9A8}
+.item input{
+  appearance:none;width:22px;height:22px;flex-shrink:0;
+  border:2.5px solid #E3D2BC;border-radius:8px;
+  cursor:pointer;position:relative;transition:all .15s;background:#fff;
+}
+.item input:checked{background:var(--mint-deep);border-color:var(--mint-deep)}
+.item input:checked::after{content:"✓";color:#fff;font-weight:900;font-size:.85rem;position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.item.done{opacity:.55}
+.item.done .iname{text-decoration:line-through}
+.tags{margin-left:auto;display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.tag{font-size:.66rem;font-weight:900;border-radius:99px;padding:2px 8px;white-space:nowrap}
+.tag.high{background:var(--risk-high);color:var(--risk-high-ink)}
+.tag.mid{background:var(--risk-mid);color:var(--risk-mid-ink)}
+.tag.forgot{background:#FFD9E0;color:#B5354F}
+.tag.mine{background:#FFE9C2;color:#9A6A1F}
+.tag.custom{background:#E3F0FF;color:#3A6FB5}
+.tag.ai{background:#EFE9FC;color:#7152C9}
+.item.is-ai{background:#FCFAFF;border-color:#E0D4F5}
+.iname-wrap{flex:1;display:flex;flex-direction:column;min-width:0}
+.ireason{font-size:.72rem;color:var(--ink-soft);line-height:1.35;margin-top:1px}
+.item-del{
+  border:none;background:transparent;color:#D8C5AE;cursor:pointer;
+  font-size:.85rem;font-weight:900;width:24px;height:24px;border-radius:50%;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.item-del:hover{background:var(--risk-high);color:var(--risk-high-ink);transform:scale(1.15)}
+body.hide-done .item.done{display:none}
+body.hide-done .cat-block.all-done{display:none}
+
+/* 風險 */
+.risk-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.risk-box{border-radius:18px;padding:16px;text-align:center}
+.risk-box .num{font-family:"Baloo 2",sans-serif;font-size:2.1rem;font-weight:800;line-height:1.1}
+.risk-box .lbl{font-size:.85rem;font-weight:700}
+.risk-box.high{background:var(--risk-high);color:var(--risk-high-ink)}
+.risk-box.mid{background:var(--risk-mid);color:var(--risk-mid-ink)}
+.risk-box.low{background:var(--risk-low);color:var(--risk-low-ink)}
+.warn-bubble{
+  background:#FFF1F3;border:1.5px solid #FFCAD3;border-radius:16px;
+  padding:13px 16px;margin-bottom:10px;font-size:.95rem;
+  display:flex;gap:10px;align-items:flex-start;animation:fadeUp .4s ease;
+}
+.warn-bubble .we{font-size:1.2rem;flex-shrink:0}
+.warn-bubble.soft{background:#FFF8E6;border-color:#F2DFAE}
+.warn-bubble.memory{background:#FDF0FF;border-color:#E8C2F2}
+.risk-list .risk-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:14px;margin-bottom:8px;font-weight:500}
+.risk-row.high{background:var(--risk-high)}
+.risk-row.mid{background:var(--risk-mid)}
+.risk-row.low{background:var(--risk-low)}
+.risk-row .badge{font-size:.72rem;font-weight:900;border-radius:99px;padding:3px 10px;background:#fff}
+.risk-row.high .badge{color:var(--risk-high-ink)}
+.risk-row.mid .badge{color:var(--risk-mid-ink)}
+.risk-row.low .badge{color:var(--risk-low-ink)}
+.all-good{text-align:center;padding:26px;background:var(--risk-low);border-radius:18px;color:var(--risk-low-ink);font-weight:700;font-size:1.1rem}
+
+/* 行李建議 */
+.advice-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.advice-col{border-radius:18px;padding:16px}
+.advice-col h3{font-size:1rem;font-weight:900;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.advice-col ul{list-style:none}
+.advice-col li{font-size:.9rem;margin-bottom:9px;border-left:3px solid rgba(0,0,0,.08);padding-left:10px}
+.advice-col li b{display:block}
+.advice-col li small{color:rgba(0,0,0,.55)}
+.advice-col.must{background:var(--risk-high)}
+.advice-col.must h3{color:var(--risk-high-ink)}
+.advice-col.less{background:var(--risk-mid)}
+.advice-col.less h3{color:var(--risk-mid-ink)}
+.advice-col.local{background:var(--risk-low)}
+.advice-col.local h3{color:var(--risk-low-ink)}
+
+/* 空間 */
+.space-verdict{border-radius:18px;padding:18px;margin-bottom:16px;font-weight:500;display:flex;gap:12px;align-items:flex-start}
+.space-verdict .se{font-size:1.6rem;flex-shrink:0}
+.space-verdict.ok{background:var(--risk-low);color:#1F6B4A}
+.space-verdict.tight{background:var(--risk-mid);color:#8A5E10}
+.space-verdict.over{background:var(--risk-high);color:#A82746}
+.gauge-wrap{margin-bottom:18px}
+.gauge-label{display:flex;justify-content:space-between;font-size:.85rem;font-weight:700;margin-bottom:6px;color:var(--ink-soft)}
+.gauge{height:18px;background:#F2EADD;border-radius:99px;overflow:hidden}
+.gauge-fill{height:100%;border-radius:99px;transition:width .6s ease;background:linear-gradient(90deg,var(--mint),var(--mint-deep))}
+.gauge-fill.tight{background:linear-gradient(90deg,#F5C76B,#E8A23C)}
+.gauge-fill.over{background:linear-gradient(90deg,#FF96A8,#F25C77)}
+.tip-row{display:flex;gap:12px;align-items:flex-start;background:#FFFBF2;border:1.5px dashed #F0D9B5;border-radius:16px;padding:14px 16px;margin-bottom:10px}
+.tip-row .emoji{font-size:1.4rem;flex-shrink:0}
+.tip-row b{display:block}
+.tip-row small{color:var(--ink-soft)}
+
+/* 緊急檢查（獨立頁） */
+.urgent-item{
+  display:flex;align-items:center;gap:12px;
+  background:#FFF6EC;border:2px solid #FFE3C2;
+  border-radius:16px;padding:14px 18px;margin-bottom:10px;
+  cursor:pointer;font-weight:700;font-size:1.1rem;transition:all .15s;
+}
+.urgent-item:hover{transform:translateX(4px)}
+.urgent-item input{
+  appearance:none;width:28px;height:28px;flex-shrink:0;
+  border:3px solid #F2B36B;border-radius:50%;cursor:pointer;position:relative;background:#fff;
+}
+.urgent-item input:checked{background:var(--mint-deep);border-color:var(--mint-deep)}
+.urgent-item input:checked::after{content:"✓";color:#fff;font-weight:900;position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.urgent-item.done{background:var(--risk-low);border-color:#BCE8D4;opacity:.75}
+.urgent-item.done span{text-decoration:line-through}
+.urgent-done-msg{display:none;text-align:center;font-weight:900;font-size:1.15rem;color:var(--risk-low-ink);padding:16px;background:var(--risk-low);border-radius:16px;margin-top:6px}
+.urgent-done-msg.show{display:block;animation:pop .3s ease}
+@keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* 回程檢查 */
+.spot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.spot{background:#FBFDFF;border:1.5px solid #E3EEFA;border-radius:18px;padding:16px}
+.spot h3{display:flex;align-items:center;gap:8px;font-size:1rem;font-weight:900;margin-bottom:10px;color:var(--sky-deep)}
+.spot .item{margin-bottom:6px}
+.spot.personal{background:#FFF9F0;border-color:#F2DDB8;grid-column:1/-1}
+.spot.personal h3{color:var(--peach-deep)}
+.spot.personal .items-inline{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}
+
+.hidden{display:none}
+/* AI 模式標籤與設定頁 */
+.mode-tag{
+  font-size:.72rem;font-weight:900;border-radius:99px;padding:4px 12px;
+  vertical-align:middle;margin-left:8px;display:inline-block;
+}
+.mode-tag.online{background:#E2F6EC;color:#1F8A5D;border:1.5px solid #A9E3C8}
+.mode-tag.offline{background:#F2EDE4;color:#8C7B6E;border:1.5px solid #E0D4C2}
+.key-row{display:flex;gap:10px;flex-wrap:wrap}
+.key-row input{flex:1;min-width:220px;font-family:monospace}
+.ai-status{
+  border-radius:14px;padding:12px 16px;margin-top:14px;font-size:.92rem;font-weight:700;
+}
+.ai-status.ok{background:var(--risk-low);color:var(--risk-low-ink)}
+.ai-status.bad{background:var(--risk-high);color:var(--risk-high-ink)}
+.ai-status.idle{background:#F7F1E6;color:var(--ink-soft)}
+.note-box{
+  background:#FFFBF2;border:1.5px dashed #F0D9B5;border-radius:16px;
+  padding:14px 16px;font-size:.88rem;color:var(--ink-soft);margin-top:16px;
+}
+.note-box b{color:var(--ink)}
+/* 專題報告頁 */
+.rp-section{margin-bottom:14px}
+.rp-h{font-weight:900;font-size:1.05rem;margin-bottom:10px;display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:2px dashed #F0DFC9}
+.rp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.rp-card{background:#FFFDF6;border:1.5px solid #F0E4CF;border-radius:14px;padding:14px}
+.rp-card .rp-t{font-weight:900;font-size:.95rem;margin-bottom:4px}
+.rp-card .rp-d{font-size:.85rem;color:var(--ink-soft);line-height:1.55}
+.rp-badge{display:inline-block;font-size:.7rem;font-weight:900;border-radius:99px;padding:2px 9px;margin-bottom:6px}
+.rp-badge.gen{background:#EFE9FC;color:#7152C9}
+.rp-badge.cls{background:#E1F0FF;color:#3A6FB5}
+.rp-badge.vis{background:#DDF6EF;color:#1F8A5D}
+.rp-badge.pe{background:#FFE9CE;color:#9A6A1F}
+.rp-badge.rule{background:#F2EADB;color:#8C7B6E}
+.rp-badge.loop{background:#FFE3E8;color:#C2415A}
+.rp-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+.rp-step{background:#FFF3E2;border:1.5px solid #F5C9A0;border-radius:12px;padding:8px 14px;font-weight:700;font-size:.88rem}
+.rp-arrow{color:var(--peach-deep);font-weight:900}
+.rp-timeline{list-style:none}
+.rp-timeline li{position:relative;padding:0 0 14px 24px;border-left:2px solid #F0DFC9;margin-left:6px}
+.rp-timeline li::before{content:"";position:absolute;left:-7px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--peach);border:2px solid #fff}
+.rp-timeline li:last-child{border-left-color:transparent}
+.rp-timeline b{display:block}
+.rp-timeline small{color:var(--ink-soft)}
+footer{text-align:center;color:var(--ink-soft);font-size:.85rem;margin-top:40px}
+
+/* RWD */
+@media (max-width:880px){
+  aside.sidebar{transform:translateX(-105%);box-shadow:0 0 40px rgba(0,0,0,.15)}
+  aside.sidebar.open{transform:translateX(0)}
+  .side-mask.show{display:block}
+  main{margin-left:0;padding:78px 16px 110px}
+  .topbar{display:flex}
+  .tabbar{display:flex}
+  .form-grid{grid-template-columns:1fr}
+  .card{padding:20px 16px}
+  .items{grid-template-columns:1fr}
+  .advice-grid{grid-template-columns:1fr}
+  .risk-box{padding:12px 6px}
+  .risk-box .num{font-size:1.6rem}
+  .add-row{flex-direction:column}
+  .list-add input,.list-add select,.list-add .btn{width:100%}
+  .btn-main{width:100%;justify-content:center}
+}
+</style>
+</head>
+<body>
+
+<!-- 手機頂列 -->
+<div class="topbar">
+  <button class="ham" id="hamBtn">☰</button>
+  <span class="ttl">🧳 AI 打包檢查員</span>
+</div>
+<div class="side-mask" id="sideMask"></div>
+
+<div class="layout">
+
+<!-- ===== 側邊導覽列 ===== -->
+<aside class="sidebar" id="sidebar">
+  <div class="side-logo"><span class="emo">🧳</span>AI 行李箱<br>打包檢查員</div>
+
+  <div class="nav-group">總覽</div>
+  <button class="nav-btn" data-nav="dashboard">🏠 儀表板</button>
+
+  <div class="nav-group">第一站・行程設定</div>
+  <button class="nav-btn" data-nav="trip">📝 旅行資訊</button>
+  <button class="nav-btn" data-nav="custom">🎨 客製化設定</button>
+  <button class="nav-btn" data-nav="memory">⭐ 打包記憶庫<span class="nbadge" id="navMemBadge">0</span></button>
+
+  <div class="nav-group">第二站・AI 分析</div>
+  <button class="nav-btn lockable" data-nav="analysis">🤖 AI 分析報告</button>
+
+  <div class="nav-group">第三站・打包執行</div>
+  <button class="nav-btn lockable" data-nav="checklist">✅ 打包清單<span class="nbadge" id="navListBadge">—</span></button>
+  <button class="nav-btn lockable" data-nav="risk">⚠️ 漏帶風險分析<span class="nbadge" id="navRiskBadge">—</span></button>
+
+  <div class="nav-group">第四站・出發與回程</div>
+  <button class="nav-btn urgent-style" data-nav="urgent">⏰ 出門前緊急檢查</button>
+  <button class="nav-btn lockable" data-nav="hotel">🏨 回程遺漏檢查</button>
+  <button class="nav-btn lockable" data-nav="review">🏁 旅程成績單</button>
+
+  <div class="nav-group">系統設定</div>
+  <button class="nav-btn" data-nav="ai">⚙️ AI 連線設定<span class="nbadge" id="navAiBadge">離線</span></button>
+  <button class="nav-btn" data-nav="report">📖 專題報告</button>
+</aside>
+
+<!-- ===== 主內容 ===== -->
+<main>
+
+  <!-- 🏠 儀表板 -->
+  <section class="page" data-page="dashboard">
+    <div class="page-head">
+      <div class="crumb">總覽</div>
+      <h1>🏠 旅行儀表板</h1>
+      <p>這趟旅行的整體狀況，一眼掌握。</p>
+    </div>
+    <div id="dashEmpty">
+      <div class="card welcome">
+        <span class="big">🧳</span>
+        <h2>歡迎使用 AI 行李箱打包檢查員！</h2>
+        <p>三步驟開始：填行程 → 設定習慣 → 讓 AI 幫你打包。<br>左邊上鎖的功能會在產生清單後自動解鎖。</p>
+        <button class="btn btn-main" data-nav="trip">🚀 開始設定行程</button>
+      </div>
+    </div>
+    <div id="dashFull" class="hidden">
+      <div class="stat-grid">
+        <div class="stat"><div class="s-label">📍 這趟旅行</div><div class="s-value" id="dashTrip">—</div></div>
+        <div class="stat">
+          <div class="s-label">📦 打包進度</div>
+          <div class="s-value" id="dashProgress">0%</div>
+          <div class="mini-bar"><div class="mini-fill" id="dashBar" style="width:0%"></div></div>
+        </div>
+        <div class="stat"><div class="s-label">🚨 完蛋級未打包</div><div class="s-value danger" id="dashHigh">0 項</div></div>
+        <div class="stat"><div class="s-label">🔁 黑歷史盯防中</div><div class="s-value" id="dashForgot">0 項</div></div>
+      </div>
+      <div class="card-title" style="margin-bottom:12px"><div class="icon peach">⚡</div>快速前往</div>
+      <div class="quick-grid">
+        <button class="quick" data-nav="checklist"><span class="qe">✅</span>打包清單<small>繼續勾選與新增品項</small></button>
+        <button class="quick" data-nav="risk"><span class="qe">⚠️</span>風險分析<small>看看還有什麼沒帶</small></button>
+        <button class="quick" data-nav="urgent"><span class="qe">⏰</span>緊急檢查<small>出門前最後 5 分鐘</small></button>
+        <button class="quick" data-nav="hotel"><span class="qe">🏨</span>回程檢查<small>退房前巡一遍</small></button>
+      </div>
+      <div class="step-nav"><span class="spacer"></span>
+        <button class="btn btn-ghost" data-nav="trip">✏️ 修改行程，重新產生清單</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 📝 旅行資訊 -->
+  <section class="page" data-page="trip">
+    <div class="page-head">
+      <div class="crumb">第一站・行程設定（1/3）</div>
+      <h1>📝 旅行資訊</h1>
+      <p>告訴 AI 你要去哪、玩多久、怎麼去。</p>
+    </div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="field">
+          <label class="flabel">📍 目的地</label>
+          <input type="text" id="destination" placeholder="例如：東京、墾丁、台中">
+        </div>
+        <div class="field">
+          <label class="flabel">📅 旅行天數</label>
+          <input type="number" id="days" min="1" max="60" value="3">
+        </div>
+        <div class="field">
+          <label class="flabel">🌤️ 季節 / 天氣</label>
+          <select id="season">
+            <option value="spring">🌸 春天（涼爽舒適）</option>
+            <option value="summer" selected>☀️ 夏天（炎熱）</option>
+            <option value="autumn">🍂 秋天（微涼）</option>
+            <option value="winter">❄️ 冬天（寒冷）</option>
+            <option value="rainy">🌧️ 雨季（常下雨）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="flabel">🚗 交通方式</label>
+          <div class="chips" id="transportChips">
+            <label class="chip transport"><input type="radio" name="transport" value="plane" checked><span>✈️ 飛機</span></label>
+            <label class="chip transport"><input type="radio" name="transport" value="hsr"><span>🚄 高鐵</span></label>
+            <label class="chip transport"><input type="radio" name="transport" value="train"><span>🚆 火車</span></label>
+            <label class="chip transport"><input type="radio" name="transport" value="car"><span>🚗 開車</span></label>
+            <label class="chip transport"><input type="radio" name="transport" value="bus"><span>🚌 客運</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="flabel">🏨 住宿類型</label>
+          <div class="chips" id="lodgingChips">
+            <label class="chip lodging"><input type="radio" name="lodging" value="hotel" checked><span>🏨 飯店</span></label>
+            <label class="chip lodging"><input type="radio" name="lodging" value="hostel"><span>🛏️ 青旅</span></label>
+            <label class="chip lodging"><input type="radio" name="lodging" value="bnb"><span>🏡 民宿</span></label>
+            <label class="chip lodging"><input type="radio" name="lodging" value="camp"><span>⛺ 露營</span></label>
+            <label class="chip lodging"><input type="radio" name="lodging" value="friend"><span>🏠 親友家</span></label>
+          </div>
+        </div>
+        <div class="field full">
+          <label class="flabel">🎯 活動類型（可多選）</label>
+          <div class="chips" id="activityChips">
+            <label class="chip"><input type="checkbox" value="abroad"><span>🌏 出國</span></label>
+            <label class="chip"><input type="checkbox" value="concert"><span>🎤 演唱會</span></label>
+            <label class="chip"><input type="checkbox" value="beach"><span>🏖️ 海邊</span></label>
+            <label class="chip"><input type="checkbox" value="camping"><span>⛺ 露營</span></label>
+            <label class="chip"><input type="checkbox" value="business"><span>💼 商務</span></label>
+            <label class="chip"><input type="checkbox" value="family"><span>👨‍👩‍👧 家庭旅遊</span></label>
+          </div>
+          <input type="text" id="actCustom" style="margin-top:10px" maxlength="40"
+            placeholder="✍️ 其他特殊活動，自行填寫（用頓號分隔）：例如 滑雪、馬拉松、參加婚禮">
+          <p class="chip-hint">填了特殊活動，AI 會針對它推薦專屬裝備（例如滑雪 → 雪鏡、防水手套）</p>
+        </div>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="dashboard">← 回儀表板</button>
+      <span class="spacer"></span>
+      <button class="btn btn-mint" data-nav="custom">下一步：客製化設定 →</button>
+    </div>
+  </section>
+
+  <!-- 🎨 客製化設定 -->
+  <section class="page" data-page="custom">
+    <div class="page-head">
+      <div class="crumb">第一站・行程設定（2/3）</div>
+      <h1>🎨 客製化設定</h1>
+      <p>你的打包風格、身體需求和行李條件，AI 都會考慮進去。</p>
+    </div>
+    <div class="card">
+      <p class="section-sub">🎒 打包風格</p>
+      <div class="chips" id="styleChips">
+        <label class="chip style"><input type="radio" name="pstyle" value="normal" checked><span>🙂 標準</span></label>
+        <label class="chip style"><input type="radio" name="pstyle" value="minimal"><span>🍃 極簡派</span></label>
+        <label class="chip style"><input type="radio" name="pstyle" value="safe"><span>🛡️ 安全感派</span></label>
+        <label class="chip style"><input type="radio" name="pstyle" value="photo"><span>📸 拍照派</span></label>
+        <label class="chip style"><input type="radio" name="pstyle" value="shop"><span>🛍️ 購物派</span></label>
+        <label class="chip style"><input type="radio" name="pstyle" value="lazy"><span>😴 懶人派</span></label>
+      </div>
+      <p class="chip-hint">極簡＝減量輕裝｜安全感＝多帶備用品｜拍照＝穿搭配件齊全｜購物＝預留空間｜懶人＝最重要的排最前面</p>
+
+      <p class="section-sub">💪 身體需求（可多選）</p>
+      <div class="chips" id="bodyChips">
+        <label class="chip body"><input type="checkbox" value="cold"><span>🥶 怕冷</span></label>
+        <label class="chip body"><input type="checkbox" value="hot"><span>🥵 怕熱</span></label>
+        <label class="chip body"><input type="checkbox" value="motion"><span>🤢 容易暈車</span></label>
+        <label class="chip body"><input type="checkbox" value="allergy"><span>🤧 容易過敏</span></label>
+        <label class="chip body"><input type="checkbox" value="lens"><span>👁️ 戴隱形眼鏡</span></label>
+        <label class="chip body"><input type="checkbox" value="meds"><span>💊 有固定藥物</span></label>
+        <label class="chip body"><input type="checkbox" value="sleep"><span>😪 睡眠品質不好</span></label>
+      </div>
+
+      <p class="section-sub">🧳 行李容量</p>
+      <div class="chips" id="capChips">
+        <label class="chip lodging"><input type="radio" name="cap" value="bag"><span>🎒 小背包</span></label>
+        <label class="chip lodging"><input type="radio" name="cap" value="s20" checked><span>🧳 20 吋</span></label>
+        <label class="chip lodging"><input type="radio" name="cap" value="s24"><span>🧳 24 吋</span></label>
+        <label class="chip lodging"><input type="radio" name="cap" value="s26"><span>🧳 26 吋</span></label>
+        <label class="chip lodging"><input type="radio" name="cap" value="s28"><span>🧳 28 吋</span></label>
+        <label class="chip lodging"><input type="radio" name="cap" value="s30"><span>🧳 30 吋</span></label>
+        <label class="chip lodging"><input type="radio" name="cap" value="s32"><span>🧳 32 吋</span></label>
+      </div>
+
+      <p class="section-sub">🛍️ 購物程度</p>
+      <div class="chips" id="shopChips">
+        <label class="chip"><input type="radio" name="shop" value="none" checked><span>🙅 不購物</span></label>
+        <label class="chip"><input type="radio" name="shop" value="little"><span>🛒 買一點</span></label>
+        <label class="chip"><input type="radio" name="shop" value="gift"><span>🎁 買伴手禮</span></label>
+        <label class="chip"><input type="radio" name="shop" value="heavy"><span>🤑 大量購物</span></label>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="trip">← 上一步</button>
+      <span class="spacer"></span>
+      <button class="btn btn-mint" data-nav="memory">下一步：打包記憶庫 →</button>
+    </div>
+  </section>
+
+  <!-- ⭐ 打包記憶庫 -->
+  <section class="page" data-page="memory">
+    <div class="page-head">
+      <div class="crumb">第一站・行程設定（3/3）</div>
+      <h1>⭐ 我的打包記憶庫</h1>
+      <p>這頁的設定會被記住，每次產生清單都自動套用。</p>
+    </div>
+    <div class="card">
+      <p class="section-sub">⭐ 個人必帶物品（每次自動加入清單）</p>
+      <div class="add-row">
+        <input type="text" id="mineInput" placeholder="例如：護手霜、保溫瓶、抱枕⋯⋯按 Enter 也可以新增" maxlength="20">
+        <button class="btn btn-mint btn-sm" id="mineAdd">＋ 加入必帶</button>
+      </div>
+      <div class="pill-list" id="mineList"></div>
+
+      <p class="section-sub">🔁 忘帶黑歷史（曾經忘記帶的東西，AI 會幫你盯緊）</p>
+      <div class="add-row">
+        <input type="text" id="forgotInput" placeholder="例如：充電器、牙刷、隱形眼鏡藥水⋯⋯" maxlength="20">
+        <button class="btn btn-berry btn-sm" id="forgotAdd">＋ 記下來</button>
+      </div>
+      <div class="pill-list" id="forgotList"></div>
+    </div>
+    <div class="card" style="text-align:center">
+      <p style="color:var(--ink-soft);margin-bottom:16px">設定都完成了嗎？讓 AI 開始為你打包！</p>
+      <button class="btn btn-main" id="generateBtn">🤖 產生打包清單</button>
+      <div class="ai-think" id="aiThink">
+        <div class="bouncy"><i></i><i></i><i></i></div>
+        <span id="thinkText">AI 檢查員正在閱讀你的行程⋯⋯</span>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="custom">← 上一步</button>
+    </div>
+  </section>
+
+  <!-- 🤖 AI 分析報告（摘要＋行李建議＋空間試算 三合一） -->
+  <section class="page" data-page="analysis">
+    <div class="page-head">
+      <div class="crumb">第二站・AI 分析</div>
+      <h1>🤖 AI 分析報告 <span class="mode-tag offline" id="modeTagSummary">📦 離線模擬</span></h1>
+      <p>智慧摘要、AI 提醒事項與行李建議，一頁看完。</p>
+    </div>
+
+    <!-- 智慧分析摘要 -->
+    <div class="card">
+      <div class="card-title"><div class="icon peach">💬</div>智慧分析摘要</div>
+      <div class="ai-row">
+        <div class="ai-avatar">🤖</div>
+        <div class="ai-bubble"><span id="summaryText"></span><span class="type-cursor" id="typeCursor"></span></div>
+      </div>
+      <div id="sumSections"></div>
+    </div>
+
+    <!-- AI 行李建議 -->
+    <div class="card">
+      <div class="card-title"><div class="icon lilac">🧠</div>AI 行李建議 <span class="mode-tag offline" id="modeTagAdvice" style="font-size:.62rem">📦 離線模擬</span></div>
+      <p style="color:var(--ink-soft);font-size:.92rem;margin-bottom:16px" id="adviceIntro"></p>
+      <div class="advice-grid">
+        <div class="advice-col must"><h3>🔴 這些必帶，沒得商量</h3><ul id="adviceMust"></ul></div>
+        <div class="advice-col less"><h3>🟡 這些可以少帶一點</h3><ul id="adviceLess"></ul></div>
+        <div class="advice-col local"><h3>🟢 這些到當地買就好</h3><ul id="adviceLocal"></ul></div>
+      </div>
+    </div>
+
+    <!-- Prompt 透明窗 -->
+    <div class="card" id="promptCard" style="padding:18px 24px">
+      <button class="tips-toggle" id="promptToggle">
+        <div class="card-title" style="margin-bottom:0"><div class="icon mint">🔍</div>Prompt 透明窗：AI 是怎麼被問的？<span class="tg-arrow closed" id="promptArrow">▾</span></div>
+      </button>
+      <div id="promptBody" class="hidden">
+        <p class="prompt-note">這裡公開系統實際送給 Gemini 的完整提示詞（Prompt）。設計上用了四個 Prompt Engineering 技巧：<b>① 角色設定</b>——賦予 AI「行李檢查員」的人格與口語語氣；<b>② 條件注入</b>——把你的行程、身體需求、黑歷史動態填入提示詞；<b>③ 格式約束</b>——強制只輸出指定結構的 JSON，讓程式能穩定解析；<b>④ 負面指令</b>——明確列出既有清單，禁止 AI 推薦重複物品。</p>
+        <div id="promptMeta" class="prompt-meta"></div>
+        <pre id="promptText" class="prompt-pre"></pre>
+        <div id="promptClassifyWrap" class="hidden">
+          <p class="prompt-note" style="margin-top:16px"><b>最近一次「智慧分類」的 Prompt：</b>單一分類任務用短提示就夠——任務越聚焦，提示越短、速度越快、成本越低。</p>
+          <div id="promptClassifyMeta" class="prompt-meta"></div>
+          <pre id="promptClassifyText" class="prompt-pre"></pre>
+        </div>
+        <div id="promptVisionWrap" class="hidden">
+          <p class="prompt-note" style="margin-top:16px"><b>最近一次「拍照核對」的 Prompt：</b>多模態任務——文字提示與圖片一起送出，並把清單名稱注入提示中要求 AI「逐字比對」，這是讓影像辨識結果能對接程式邏輯的關鍵。</p>
+          <div id="promptVisionMeta" class="prompt-meta"></div>
+          <pre id="promptVisionText" class="prompt-pre"></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="memory">← 回設定</button>
+      <span class="spacer"></span>
+      <button class="btn btn-mint" data-nav="checklist">開始打包：前往清單 →</button>
+    </div>
+  </section>
+
+  <!-- ✅ 打包清單 -->
+  <section class="page" data-page="checklist">
+    <div class="page-head">
+      <div class="crumb">第三站・打包執行（1/2）</div>
+      <h1>✅ 打包清單</h1>
+      <p>邊打包邊勾，AI 沒想到的自己加，不需要的直接刪。</p>
+    </div>
+
+    <!-- 打包小撇步（可收合，邊整理邊看） -->
+    <div class="card" id="tipsCard" style="padding:18px 24px">
+      <button class="tips-toggle" id="tipsToggle">
+        <div class="card-title" style="margin-bottom:0"><div class="icon berry">🧷</div>打包小撇步<span class="tg-arrow" id="tipsArrow">▾</span></div>
+      </button>
+      <div id="tipsBody"><div id="tipList" style="margin-top:14px"></div></div>
+    </div>
+
+    <!-- AI 拍照核對（電腦視覺） -->
+    <div class="card" id="photoCard" style="padding:18px 24px">
+      <button class="tips-toggle" id="photoToggle">
+        <div class="card-title" style="margin-bottom:0"><div class="icon sky">📸</div>AI 拍照核對行李<span class="tg-arrow closed" id="photoArrow">▾</span></div>
+      </button>
+      <div id="photoBody" class="hidden">
+        <p class="prompt-note" style="margin-top:12px">把打包好的物品攤開拍一張清楚的照片，AI 會「看」照片辨識物品，自動幫你勾選清單上對應的項目，並提醒你還沒看到哪些重要物品。<b>需先在「⚙️ AI 連線設定」設定金鑰。</b>照片只會送往 Gemini 辨識，不會被系統儲存。</p>
+        <div class="photo-row">
+          <label class="btn btn-sky btn-sm" for="photoInput">📷 選擇 / 拍攝照片</label>
+          <input type="file" id="photoInput" accept="image/*" hidden>
+          <button class="btn btn-mint btn-sm hidden" id="photoGo">🔍 開始辨識</button>
+        </div>
+        <img id="photoPreview" class="hidden" alt="行李照片預覽">
+        <div id="photoResult"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="progress-wrap">
+        <div class="progress-text"><span>📦 打包進度</span><span id="progressNum">0 / 0</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+      <div class="list-add">
+        <input type="text" id="customName" placeholder="✍️ AI 沒想到的，自己加！只要打名字，分類和風險交給 AI 判斷" maxlength="25">
+        <select id="customCat">
+          <option value="auto" selected>🤖 分類：AI 自動判斷</option>
+          <option value="other">🎒 其他</option>
+          <option value="docs">🪪 證件與金錢</option>
+          <option value="clothes">👕 衣物</option>
+          <option value="wash">🪥 盥洗用品</option>
+          <option value="elec">🔌 電子用品</option>
+          <option value="med">💊 藥品</option>
+          <option value="activity">🎯 活動專屬物品</option>
+          <option value="lodging">🏨 住宿小物</option>
+        </select>
+        <select id="customRisk">
+          <option value="auto" selected>🤖 風險：AI 自動判斷</option>
+          <option value="low">🙂 一般</option>
+          <option value="mid">⚠️ 忘了會很麻煩</option>
+          <option value="high">⚡ 忘了會完蛋</option>
+        </select>
+        <button class="btn btn-mint btn-sm" id="customAdd">＋ 智慧加入</button>
+      </div>
+      <div class="list-tools">
+        <button class="btn btn-ghost btn-sm" id="filterBtn">👀 只看未完成</button>
+      </div>
+      <div id="checklist"></div>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="analysis">← 回 AI 分析報告</button>
+      <span class="spacer"></span>
+      <button class="btn btn-berry" data-nav="risk">下一步：漏帶風險分析 →</button>
+    </div>
+  </section>
+
+  <!-- ⚠️ 風險分析 -->
+  <section class="page" data-page="risk">
+    <div class="page-head">
+      <div class="crumb">第三站・打包執行（2/2）</div>
+      <h1>⚠️ 漏帶風險分析</h1>
+      <p>AI 掃描還沒勾選的物品，依嚴重程度分級警告。</p>
+    </div>
+    <div class="card">
+      <div class="risk-summary">
+        <div class="risk-box high"><div class="num" id="highNum">0</div><div class="lbl">🚨 高風險</div></div>
+        <div class="risk-box mid"><div class="num" id="midNum">0</div><div class="lbl">😬 中風險</div></div>
+        <div class="risk-box low"><div class="num" id="lowNum">0</div><div class="lbl">🙂 低風險</div></div>
+      </div>
+      <div id="aiWarnings"></div>
+      <div class="risk-list" id="riskList"></div>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="checklist">← 回清單補打包</button>
+      <span class="spacer"></span>
+      <button class="btn btn-mint" data-nav="urgent">出發前：緊急檢查 →</button>
+    </div>
+  </section>
+
+  <!-- ⏰ 緊急檢查 -->
+  <section class="page" data-page="urgent">
+    <div class="page-head">
+      <div class="crumb">第四站・出發與回程（1/2）</div>
+      <h1>⏰ 出門前 5 分鐘緊急檢查</h1>
+      <p id="urgentSub">只檢查最重要的 10 項，逐一勾選確認，安心出門 🚪</p>
+    </div>
+    <div class="card">
+      <div id="urgentList"></div>
+      <div class="urgent-done-msg" id="urgentDone">🎉 全部確認完成！可以安心出門啦～一路順風！</div>
+      <div style="text-align:center;margin-top:16px">
+        <button class="btn btn-ghost btn-sm" id="urgentReset">🔄 重置勾選</button>
+      </div>
+    </div>
+    <div class="step-nav">
+      <span class="spacer"></span>
+      <button class="btn btn-sky" data-nav="hotel">回程時：住宿遺漏檢查 →</button>
+    </div>
+  </section>
+
+  <!-- 🏨 回程遺漏檢查 -->
+  <section class="page" data-page="hotel">
+    <div class="page-head">
+      <div class="crumb">第四站・出發與回程（2/2）</div>
+      <h1>🏨 回程住宿遺漏檢查</h1>
+      <p id="hotelIntro">離開住宿前，把每個角落都掃過一遍，東西不留在原地！</p>
+    </div>
+    <div class="card">
+      <div class="spot-grid" id="spotGrid"></div>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="dashboard">← 回儀表板</button>
+      <span class="spacer"></span>
+      <button class="btn btn-berry" data-nav="review">旅程結束：看成績單 →</button>
+    </div>
+  </section>
+
+  <!-- 🏁 回顧與學習（閉環學習） -->
+  <section class="page" data-page="review">
+    <div class="page-head">
+      <div class="crumb">第四站・出發與回程（3/3）</div>
+      <h1>🏁 旅程成績單</h1>
+      <p>旅程結束，來看看這趟的打包成績！告訴 AI 實際結果，它會記住你的忘帶紀錄，下次盯得更緊。</p>
+    </div>
+    <div class="card">
+      <p style="color:var(--ink-soft);font-size:.92rem;margin-bottom:16px" id="reviewIntro"></p>
+      <div id="reviewList"></div>
+      <div class="urgent-done-msg" id="reviewDone"></div>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="dashboard">← 回儀表板</button>
+    </div>
+  </section>
+
+  <!-- ⚙️ AI 連線設定 -->
+  <section class="page" data-page="ai">
+    <div class="page-head">
+      <div class="crumb">系統設定</div>
+      <h1>⚙️ AI 連線設定</h1>
+      <p>貼上 Google AI Studio 的 Gemini API 金鑰，分析摘要、反問和行李建議就會升級成「真 AI 即時生成」。</p>
+    </div>
+    <div class="card">
+      <p class="section-sub">🔑 Gemini API 金鑰</p>
+      <div class="key-row">
+        <input type="password" id="aiKeyInput" placeholder="貼上 AIza 開頭的金鑰⋯⋯" autocomplete="off">
+        <button class="btn btn-mint btn-sm" id="aiKeySave">💾 儲存</button>
+        <button class="btn btn-sky btn-sm" id="aiKeyTest">📡 測試連線</button>
+        <button class="btn btn-ghost btn-sm" id="aiKeyClear">🗑️ 清除</button>
+      </div>
+      <div class="ai-status idle" id="aiStatus">尚未設定金鑰。沒有金鑰也能正常使用，系統會以「📦 離線模擬模式」運作。</div>
+      <div class="note-box">
+        <b>運作方式：</b>按下「產生打包清單」時，<b>清單與風險分析永遠由本機規則引擎產生</b>（保證不漏掉護照這種關鍵物品）；AI 分析摘要、三個反問、行李建議則會即時呼叫 Gemini 生成，真正認識你填的目的地。AI 連線失敗或逾時會自動退回離線模擬，demo 不會開天窗。<br><br>
+        <b>金鑰安全：</b>金鑰只存在「你這台電腦的瀏覽器」裡，不會寫進這個 HTML 檔案，檔案可以放心分享。但請不要把金鑰本身傳給別人或截圖進投影片。<br><br>
+        <b>取得金鑰：</b>到 aistudio.google.com → Get API key，免費額度對 demo 綽綽有餘。
+      </div>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="dashboard">← 回儀表板</button>
+    </div>
+  </section>
+
+  <!-- 📖 專題報告 -->
+  <section class="page" data-page="report">
+    <div class="page-head">
+      <div class="crumb">系統設定</div>
+      <h1>📖 專題報告</h1>
+      <p>「人工智慧概論與實作」期末專題 · AI 行李箱打包檢查員 · 系統設計與 AI 概念對應</p>
+    </div>
+
+    <div class="card">
+      <div class="rp-section">
+        <div class="rp-h">🎯 系統簡介</div>
+        <p style="font-size:.92rem;line-height:1.8">本系統幫助使用者在旅行前產生個人化行李清單，並透過勾選檢查、漏帶風險分析、出門前緊急檢查與回程遺漏檢查，降低忘記帶重要物品的機率。系統採用<b>「混合式 AI 架構」</b>：邏輯明確、不容出錯的部分（清單產生、風險分級）由本機規則引擎負責；需要語言與認知能力的部分（分析摘要、行李建議、物品分類、影像辨識）則串接 Google Gemini 即時生成，並設計連線失敗時的自動降級機制。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="rp-section">
+        <div class="rp-h">🧠 系統運用的 AI 概念</div>
+        <div class="rp-grid">
+          <div class="rp-card"><span class="rp-badge gen">生成式 AI</span><div class="rp-t">個人化分析與建議</div><div class="rp-d">將使用者行程組成 Prompt，由 LLM 即時生成分析摘要、反問與行李建議，真正「認識」目的地。</div></div>
+          <div class="rp-card"><span class="rp-badge cls">文本分類</span><div class="rp-t">智慧新增品項</div><div class="rp-d">輸入物品名，AI 自動判斷所屬分類與漏帶風險等級，是典型的 classification 任務。</div></div>
+          <div class="rp-card"><span class="rp-badge vis">電腦視覺・多模態</span><div class="rp-t">拍照核對行李</div><div class="rp-d">上傳行李照片，AI 辨識物品並自動勾選清單、提醒未見到的高風險物品。</div></div>
+          <div class="rp-card"><span class="rp-badge pe">Prompt Engineering</span><div class="rp-t">提示詞工程</div><div class="rp-d">運用角色設定、條件注入、JSON 格式約束、負面指令四項技巧，並以「透明窗」公開展示。</div></div>
+          <div class="rp-card"><span class="rp-badge rule">規則式系統</span><div class="rp-t">降級容錯</div><div class="rp-d">AI 失敗時，分類與分析自動切換至本機關鍵字規則引擎，保證系統永遠可用。</div></div>
+          <div class="rp-card"><span class="rp-badge loop">資料飛輪</span><div class="rp-t">閉環學習</div><div class="rp-d">旅程成績單回收忘帶結果，寫入黑歷史並於下次加權，系統越用越懂使用者。</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="rp-section">
+        <div class="rp-h">🏗️ 混合式架構：AI ＋ 規則引擎</div>
+        <p style="font-size:.9rem;color:var(--ink-soft);margin-bottom:6px">按下「產生清單」時的資料流：</p>
+        <div class="rp-flow">
+          <span class="rp-step">使用者設定</span><span class="rp-arrow">→</span>
+          <span class="rp-step">規則引擎產生基礎清單</span><span class="rp-arrow">→</span>
+          <span class="rp-step">並行呼叫 Gemini</span>
+        </div>
+        <div class="rp-flow">
+          <span class="rp-step">✅ 成功 → AI 摘要／建議／加碼品項</span>
+        </div>
+        <div class="rp-flow">
+          <span class="rp-step">⚠️ 失敗 → 自動降級為離線句庫</span>
+        </div>
+        <p style="font-size:.88rem;line-height:1.7;margin-top:8px"><b>設計理由：</b>護照、藥品這類「絕對不能漏」的關鍵物品交由規則引擎可保證 100% 不遺漏；而「像人一樣說話」的部分交給 AI。兩者各司其職，並透過降級機制確保即使斷網或 API 額度用盡，系統核心功能仍完整可用。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="rp-section">
+        <div class="rp-h">🛠️ 開發歷程</div>
+        <ul class="rp-timeline">
+          <li><b>① MVP 建置</b><small>單頁式系統，完成六大核心功能：清單、風險、緊急檢查、回程檢查等。</small></li>
+          <li><b>② 強化 AI 感</b><small>以「條件觸發＋句庫＋隨機」三層機制模擬個人化回應。</small></li>
+          <li><b>③ 客製化系統</b><small>個人必帶、忘帶黑歷史、打包風格、身體需求等，個人化資料貫穿全系統。</small></li>
+          <li><b>④ 架構重構</b><small>從單頁改為多步驟導覽式網站，依旅行時間軸分四站。</small></li>
+          <li><b>⑤ 接上真 AI</b><small>串接 Google Gemini，採混合式架構；排除模型退役導致的 429 錯誤。</small></li>
+          <li><b>⑥ 概念擴充</b><small>新增文本分類、Prompt 透明窗、多模態拍照核對與閉環學習。</small></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="rp-section">
+        <div class="rp-h">⚙️ 使用技術</div>
+        <p style="font-size:.92rem;line-height:1.8">前端：HTML / CSS / JavaScript（單一檔案、無後端）。AI：Google Gemini API（多模型自動輪替、JSON 結構化輸出、多模態圖片輸入）。資料持久化：瀏覽器 localStorage。設計：RWD 響應式、卡片式介面、多步驟導覽與 hash 路由。</p>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn btn-ghost" data-nav="dashboard">← 回儀表板</button>
+    </div>
+  </section>
+
+  <footer>🧸 AI 行李箱打包檢查員 · 多步驟導覽版 · 個人設定會自動記住，祝你旅途愉快！</footer>
+</main>
+</div>
+
+<!-- 手機底部快捷列 -->
+<nav class="tabbar">
+  <button class="tab-btn" data-nav="dashboard"><span class="te">🏠</span>儀表板</button>
+  <button class="tab-btn" data-nav="checklist"><span class="te">✅</span>清單</button>
+  <button class="tab-btn" data-nav="risk"><span class="te">⚠️</span>風險<span class="tdot" id="tabRiskDot" style="display:none">0</span></button>
+  <button class="tab-btn" data-nav="urgent"><span class="te">⏰</span>緊急</button>
+  <button class="tab-btn" data-nav="hotel"><span class="te">🏨</span>回程</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* =========================================================
+   小工具
+========================================================= */
+const $ = id => document.getElementById(id);
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+const memStore = {};
+const store = {
+  get(k, fallback){
+    try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; }
+    catch(e){ return memStore[k] ?? fallback; }
+  },
+  set(k, v){
+    try{ localStorage.setItem(k, JSON.stringify(v)); }
+    catch(e){ memStore[k] = v; }
+  }
+};
+
+const SEASON_TEXT = {spring:"春天",summer:"夏天",autumn:"秋天",winter:"冬天",rainy:"雨季"};
+const ACT_TEXT = {abroad:"出國",concert:"演唱會",beach:"海邊",camping:"露營",business:"商務",family:"家庭旅遊"};
+const STYLE_TEXT = {normal:"標準",minimal:"極簡派",safe:"安全感派",photo:"拍照派",shop:"購物派",lazy:"懶人派"};
+const LODGING_TEXT = {hotel:"飯店",hostel:"青旅",bnb:"民宿",camp:"露營",friend:"親友家"};
+const CAP_TEXT = {bag:"小背包",s20:"20 吋行李箱",s24:"24 吋行李箱",s26:"26 吋行李箱",s28:"28 吋行李箱",s30:"30 吋行李箱",s32:"32 吋行李箱"};
+const SHOP_TEXT = {none:"不購物",little:"買一點",gift:"買伴手禮",heavy:"大量購物"};
+const BODY_TEXT = {cold:"怕冷",hot:"怕熱",motion:"容易暈車",allergy:"容易過敏",lens:"戴隱形眼鏡",meds:"有固定服用藥物",sleep:"睡眠品質不好"};
+
+/* =========================================================
+   Gemini AI 連線（混合式架構的「真 AI」部分）
+========================================================= */
+/* 依序嘗試的免費層模型（前面的失敗自動換下一個；成功的會被記住優先使用） */
+const GEMINI_MODELS = [
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-flash-lite-latest",
+  "gemini-flash-latest"
+];
+let preferredModel = store.get("pk_gemini_model", "");
+let lastModelUsed = "";
+let geminiKey = store.get("pk_gemini_key", "");
+let aiMode = "offline"; // "online" | "offline"
+/* Prompt 透明窗：記錄實際送出的提示詞 */
+const promptLog = {analysis:null, classify:null, vision:null};
+
+function updateAiBadge(){
+  const b = $("navAiBadge");
+  if(geminiKey){ b.textContent = "已設定"; b.className = "nbadge good"; }
+  else{ b.textContent = "離線"; b.className = "nbadge"; }
+}
+function setAiModeTags(){
+  const txt = aiMode==="online" ? "🌐 Gemini AI 即時分析" : "📦 離線模擬";
+  const cls = "mode-tag " + (aiMode==="online" ? "online" : "offline");
+  $("modeTagSummary").textContent = txt; $("modeTagSummary").className = cls;
+  $("modeTagAdvice").textContent = txt;  $("modeTagAdvice").className = cls;
+}
+
+async function callGeminiModel(model, prompt, timeoutMs, imageBase64){
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(), timeoutMs);
+  /* 多模態：有圖片時以 inline_data 一併送出 */
+  const parts = [{text: prompt}];
+  if(imageBase64) parts.push({inline_data:{mime_type:"image/jpeg", data:imageBase64}});
+  try{
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`,
+      {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          contents:[{parts}],
+          generationConfig:{temperature:0.9, responseMimeType:"application/json"}
+        }),
+        signal: ctrl.signal
+      }
+    );
+    if(!res.ok) throw new Error("http-"+res.status);
+    const data = await res.json();
+    const text = (data.candidates?.[0]?.content?.parts || []).map(p=>p.text||"").join("");
+    if(!text) throw new Error("empty");
+    return text;
+  } finally { clearTimeout(timer); }
+}
+
+async function callGemini(prompt, timeoutPerModel=12000, imageBase64=null){
+  if(!geminiKey) throw new Error("no-key");
+  /* 上次成功的模型排第一，其餘照清單順序輪替 */
+  const order = [preferredModel, ...GEMINI_MODELS].filter((m,i,a)=>m && a.indexOf(m)===i);
+  let lastErr = null;
+  for(const m of order){
+    try{
+      const text = await callGeminiModel(m, prompt, timeoutPerModel, imageBase64);
+      lastModelUsed = m;
+      if(m !== preferredModel){ preferredModel = m; store.set("pk_gemini_model", m); }
+      return text;
+    }catch(e){
+      lastErr = e;
+      /* 429（額度）、404（模型不存在/已退役）等都換下一個模型再試 */
+    }
+  }
+  throw lastErr || new Error("all-models-failed");
+}
+
+function stripFences(s){
+  return s.replace(/```json/gi,"").replace(/```/g,"").trim();
+}
+
+function buildAIPrompt(o, existingNames){
+  const baseActs = o.activities.map(a=>ACT_TEXT[a]);
+  const allActs = [...baseActs, ...(o.customActs||[])];
+  const acts = allActs.length ? allActs.join("、") : "無特別活動";
+  const bodys = o.body.length ? o.body.map(b=>BODY_TEXT[b]).join("、") : "無";
+  return `你是一個活潑、貼心、講話像生活好朋友的「AI 行李箱打包檢查員」。請用繁體中文（台灣用語）分析以下旅客的行程，語氣自然口語、可以幽默、可以用 emoji，但內容要實用且針對「這個目的地的真實情況」（氣候、文化、當地買得到什麼等）給出具體建議。
+
+旅客資料：
+- 目的地：${o.dest}
+- 天數：${o.days} 天
+- 季節/天氣：${SEASON_TEXT[o.season]}
+- 交通方式：${ {plane:"飛機",hsr:"高鐵",train:"火車",car:"開車",bus:"客運"}[o.transport] }
+- 住宿類型：${LODGING_TEXT[o.lodging]}
+- 活動類型：${acts}${o.customActs && o.customActs.length ? `（其中「${o.customActs.join("、")}」是旅客自填的特殊活動，請特別針對它們推薦專屬裝備）` : ""}
+- 打包風格：${STYLE_TEXT[o.style]}（極簡=減量、安全感=多備用品、拍照=穿搭配件、購物=預留空間、懶人=只想顧重點）
+- 身體需求：${bodys}
+- 行李容量：${CAP_TEXT[o.cap]}
+- 購物程度：${SHOP_TEXT[o.shop]}
+- 個人必帶物品：${mineItems.length ? mineItems.join("、") : "無"}
+- 曾經忘帶的黑歷史：${forgotItems.length ? forgotItems.join("、") : "無"}（如有，務必在 sections 中點名提醒）
+
+系統的基本清單已包含以下物品（你推薦的物品「絕對不可以」與這些重複或意思相近）：
+${existingNames.join("、")}
+
+請只輸出符合以下結構的 JSON，不要輸出任何其他文字：
+{
+  "summary": {
+    "tldr": "一句話的開場總結（35字內，要提到目的地，口語、有精神）",
+    "sections": [
+      {"icon":"一個emoji","title":"分類標題（5字內，例如：當地眉角、天氣穿搭、住宿提醒、特殊活動、黑歷史警報）","text":"該分類的重點（40~70字，要具體、口語、有資訊量，不能短到像標語或口號）"},
+      ...共 4~6 個分類，每個都要短而精準，不要廢話
+    ]
+  },
+  "questions": [
+    {"icon":"一個emoji","title":"問題的短標題（5字內，例如：護照效期、藥水存量）","text":"想問旅客的問題＋為什麼這題對「這趟行程」特別重要（40~70字，口語、具體）"},
+    ...共 3 題，必須是這趟行程最容易被忽略的事
+  ],
+  "items": [
+    {"name":"推薦物品名（10字內）","emoji":"一個適合的emoji","risk":"high或mid或low","reason":"一句針對此目的地或特殊活動的具體推薦理由（25字內）"},
+    ...共 4~8 項。必須是針對「${o.dest}」這個目的地、此季節與此行程（含自填特殊活動）「真正特有」的物品，不要推薦任何通用物品。
+  ],
+  "advice": {
+    "must": [{"t":"物品名","d":"一句生活化理由"}, ...共4~5項],
+    "less": [{"t":"可以少帶的東西","d":"理由"}, ...共4~5項],
+    "local": [{"t":"到當地買就好的東西","d":"理由，盡量結合當地實際情況"}, ...共4~5項]
+  }
+}`;
+}
+
+/* AI 設定頁 */
+$("aiKeyInput").value = geminiKey;
+$("aiKeySave").addEventListener("click", ()=>{
+  geminiKey = $("aiKeyInput").value.trim();
+  store.set("pk_gemini_key", geminiKey);
+  updateAiBadge();
+  const s = $("aiStatus");
+  if(geminiKey){ s.className="ai-status idle"; s.textContent = "金鑰已儲存在你的瀏覽器。可以按「測試連線」確認能不能通。"; toast("💾 金鑰已儲存"); }
+  else{ s.className="ai-status idle"; s.textContent = "尚未設定金鑰。沒有金鑰也能正常使用，系統會以「📦 離線模擬模式」運作。"; }
+});
+$("aiKeyClear").addEventListener("click", ()=>{
+  geminiKey = "";
+  $("aiKeyInput").value = "";
+  store.set("pk_gemini_key", "");
+  updateAiBadge();
+  const s = $("aiStatus");
+  s.className="ai-status idle";
+  s.textContent = "金鑰已清除，系統回到離線模擬模式。";
+  toast("🗑️ 已清除金鑰");
+});
+$("aiKeyTest").addEventListener("click", async ()=>{
+  geminiKey = $("aiKeyInput").value.trim();
+  store.set("pk_gemini_key", geminiKey);
+  updateAiBadge();
+  const s = $("aiStatus");
+  if(!geminiKey){ s.className="ai-status bad"; s.textContent = "❌ 還沒貼上金鑰喔！"; return; }
+  s.className="ai-status idle"; s.textContent = "📡 測試連線中（會自動嘗試多個免費模型）⋯⋯";
+  try{
+    const t = await callGemini('請只輸出 JSON：{"ok": true}');
+    JSON.parse(stripFences(t));
+    s.className="ai-status ok";
+    s.textContent = `✅ 連線成功！使用模型：${lastModelUsed}。產生清單時會自動啟用 AI 即時分析。`;
+    toast("📡 AI 連線成功！");
+  }catch(e){
+    s.className="ai-status bad";
+    const msg = e.name==="AbortError" ? "逾時" : (e.message || "未知錯誤");
+    let hint = "";
+    if(String(e.message).includes("429")) hint = "429 代表免費額度限制：可能是每分鐘請求數達上限（等 1 分鐘再試），或今天的免費次數用完（額度每天太平洋時間午夜重置）。可到 AI Studio 的用量頁面確認。";
+    else if(String(e.message).includes("400")||String(e.message).includes("403")) hint = "請確認金鑰是從 aistudio.google.com 申請的 Gemini API key，且沒有複製到多餘空白。";
+    else hint = "請確認網路正常（部分校園網路會擋 generativelanguage.googleapis.com）。";
+    s.textContent = `❌ 連線失敗（${msg}）。${hint} 系統仍可用離線模擬模式。`;
+  }
+});
+
+/* =========================================================
+   導覽系統
+========================================================= */
+let generated = false;
+const LOCKED_PAGES = ["analysis","checklist","risk","hotel","review"];
+/* 舊頁面名稱的轉址（合併前的書籤或舊連結仍可用） */
+const NAV_ALIAS = {summary:"analysis", advice:"analysis", space:"analysis"};
+let toastTimer = null;
+
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), 2400);
+}
+
+function navTo(page, push=true){
+  page = NAV_ALIAS[page] || page;
+  if(LOCKED_PAGES.includes(page) && !generated){
+    toast("🔒 先完成行程設定並產生清單，這頁就會解鎖！");
+    page = "trip";
+  }
+  document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active", p.dataset.page===page));
+  document.querySelectorAll(".nav-btn[data-nav]").forEach(b=>b.classList.toggle("active", b.dataset.nav===page));
+  document.querySelectorAll(".tab-btn[data-nav]").forEach(b=>b.classList.toggle("active", b.dataset.nav===page));
+  closeSidebar();
+  if(push && location.hash !== "#"+page) history.replaceState(null,"","#"+page);
+  window.scrollTo({top:0, behavior:"smooth"});
+  if(page==="risk" && generated) renderRisk();
+  if(page==="review" && generated) renderReview();
+  if(page==="urgent" && urgentToken!==genToken) renderUrgent();
+  if(page==="dashboard") refreshDashboard();
+}
+
+function updateLocks(){
+  document.querySelectorAll(".nav-btn.lockable").forEach(b=>{
+    b.classList.toggle("locked", !generated);
+  });
+}
+
+document.addEventListener("click", e=>{
+  const t = e.target.closest("[data-nav]");
+  if(t){ navTo(t.dataset.nav); }
+});
+window.addEventListener("hashchange", ()=>{
+  navTo(location.hash.replace("#","") || "dashboard", false);
+});
+
+/* 手機側欄 */
+function closeSidebar(){
+  $("sidebar").classList.remove("open");
+  $("sideMask").classList.remove("show");
+}
+$("hamBtn") && $("hamBtn").addEventListener("click", ()=>{
+  $("sidebar").classList.add("open");
+  $("sideMask").classList.add("show");
+});
+$("sideMask").addEventListener("click", closeSidebar);
+
+/* =========================================================
+   個人必帶 / 忘帶紀錄
+========================================================= */
+let mineItems = store.get("pk_mine", []);
+let forgotItems = store.get("pk_forgot", []);
+
+function updateMemBadge(){
+  const n = mineItems.length + forgotItems.length;
+  $("navMemBadge").textContent = n;
+  $("navMemBadge").className = "nbadge" + (n>0 ? " good" : "");
+}
+function renderMine(){
+  const box = $("mineList");
+  box.innerHTML = mineItems.length
+    ? mineItems.map((m,i)=>`
+      <span class="pill mine">⭐ ${esc(m)}
+        <button title="修改" data-act="edit" data-i="${i}">✎</button>
+        <button title="刪除" data-act="del" data-i="${i}">✕</button>
+      </span>`).join("")
+    : `<span class="empty-hint">還沒有設定～把你每次旅行都一定要帶的東西加進來吧！</span>`;
+  updateMemBadge();
+}
+function renderForgot(){
+  const box = $("forgotList");
+  box.innerHTML = forgotItems.length
+    ? forgotItems.map((m,i)=>`
+      <span class="pill forgot">🔁 ${esc(m)}
+        <button title="刪除" data-act="del" data-i="${i}">✕</button>
+      </span>`).join("")
+    : `<span class="empty-hint">目前沒有黑歷史，太優秀了！（或是⋯⋯還沒想起來 😏）</span>`;
+  updateMemBadge();
+}
+function addTo(listName){
+  const input = listName==="mine" ? $("mineInput") : $("forgotInput");
+  const v = input.value.trim();
+  if(!v) return;
+  const arr = listName==="mine" ? mineItems : forgotItems;
+  if(!arr.includes(v)){
+    arr.push(v);
+    store.set(listName==="mine" ? "pk_mine" : "pk_forgot", arr);
+    listName==="mine" ? renderMine() : renderForgot();
+  }
+  /* 清空輸入框（雙重保險，避免中文輸入法殘留） */
+  input.value = "";
+  setTimeout(()=>{ input.value = ""; input.focus(); }, 0);
+}
+/* 中文輸入法選字按 Enter 時不觸發新增（isComposing / keyCode 229 為組字中） */
+const isIME = e => e.isComposing || e.keyCode === 229;
+$("mineAdd").addEventListener("click", ()=>addTo("mine"));
+$("forgotAdd").addEventListener("click", ()=>addTo("forgot"));
+$("mineInput").addEventListener("keydown", e=>{ if(e.key==="Enter" && !isIME(e)) addTo("mine"); });
+$("forgotInput").addEventListener("keydown", e=>{ if(e.key==="Enter" && !isIME(e)) addTo("forgot"); });
+$("mineList").addEventListener("click", e=>{
+  const btn = e.target.closest("button"); if(!btn) return;
+  const i = +btn.dataset.i;
+  if(btn.dataset.act==="del"){ mineItems.splice(i,1); }
+  else{
+    const nv = prompt("修改個人必帶物品：", mineItems[i]);
+    if(nv && nv.trim()) mineItems[i] = nv.trim();
+  }
+  store.set("pk_mine", mineItems); renderMine();
+});
+$("forgotList").addEventListener("click", e=>{
+  const btn = e.target.closest("button"); if(!btn) return;
+  forgotItems.splice(+btn.dataset.i,1);
+  store.set("pk_forgot", forgotItems); renderForgot();
+});
+renderMine(); renderForgot();
+
+/* =========================================================
+   清單資料
+========================================================= */
+const CATS = [
+  {key:"mine",    name:"我的必帶",    emoji:"⭐"},
+  {key:"ai",      name:"AI 推薦加碼", emoji:"🤖"},
+  {key:"docs",    name:"證件與金錢",  emoji:"🪪"},
+  {key:"clothes", name:"衣物",        emoji:"👕"},
+  {key:"wash",    name:"盥洗用品",    emoji:"🪥"},
+  {key:"elec",    name:"電子用品",    emoji:"🔌"},
+  {key:"med",     name:"藥品",        emoji:"💊"},
+  {key:"activity",name:"活動專屬物品", emoji:"🎯"},
+  {key:"lodging", name:"住宿小物",    emoji:"🏨"},
+  {key:"style",   name:"風格加碼",    emoji:"🎨"},
+  {key:"other",   name:"其他",        emoji:"🎒"},
+];
+const RISK_ORDER = {high:0, mid:1, low:2};
+const bump = r => r==="low" ? "mid" : "high";
+
+function buildItems(o){
+  const A = v => o.activities.includes(v);
+  const B = v => o.body.includes(v);
+  const items = [];
+  const add = (cat,name,risk="low",emoji="",optional=false) =>
+    items.push({cat,name,risk,emoji,optional,checked:false,mine:false,forgot:false,custom:false});
+
+  mineItems.forEach(m=>{
+    items.push({cat:"mine",name:m,risk:"mid",emoji:"⭐",optional:false,checked:false,mine:true,forgot:false,custom:false});
+  });
+
+  add("docs","身分證","high","🪪");
+  add("docs","錢包（現金＋信用卡）","high","💳");
+  if(A("abroad")||o.transport==="plane"){
+    add("docs","護照","high","🛂");
+    add("docs","簽證 / 入境資料","mid","📄");
+    add("docs","外幣現金","mid","💱");
+  }
+  if(o.transport==="plane") add("docs","機票 / 電子登機證","high","🎫");
+  if(o.transport==="hsr")   add("docs","高鐵車票 / 訂位代號","high","🚄");
+  if(o.transport==="train") add("docs","火車票 / 訂位資訊","high","🚆");
+  if(o.transport==="bus")   add("docs","客運車票","mid","🚌");
+  if(o.transport==="car"){
+    add("docs","駕照","high","🚗");
+    add("docs","行照 / ETC 餘額確認","mid","🛣️");
+  }
+  add("docs","健保卡","mid","🏥");
+  add("docs","住宿訂房確認資料","mid","🏨");
+
+  let tops = Math.min(Math.max(o.days,2), 10);
+  let bottoms = Math.min(Math.max(Math.ceil(o.days/2),1),5);
+  let under = Math.min(o.days+1,10);
+  if(o.style==="minimal"){ tops = Math.max(2, Math.ceil(o.days/2)); bottoms = Math.max(1, Math.ceil(o.days/3)); under = Math.min(o.days, 5); }
+  if(o.style==="shop"){ tops = Math.max(2, tops-2); }
+  if(o.style==="photo"){ tops += 2; }
+  add("clothes",`上衣 × ${tops} 件${o.style==="minimal" ? "（極簡：當地手洗）" : ""}`,"low","👕");
+  add("clothes",`褲子 / 裙子 × ${bottoms} 件`,"low","👖");
+  add("clothes",`內衣褲 × ${under} 套`,"mid","🩲");
+  add("clothes",`襪子 × ${under} 雙`,"low","🧦");
+  add("clothes","睡衣","low","🛌",true);
+  if(o.season==="winter"){
+    add("clothes","保暖外套 / 羽絨衣","mid","🧥");
+    add("clothes","圍巾、手套、毛帽","low","🧣",true);
+    add("clothes","發熱衣","low","🔥");
+  }else if(o.season==="summer"){
+    add("clothes","薄外套（冷氣房用）","low","🧥",true);
+    add("clothes","遮陽帽","low","👒",true);
+  }else if(o.season==="rainy"){
+    add("clothes","雨衣 / 雨傘","mid","☔");
+    add("clothes","防水外套","low","🧥",true);
+    add("clothes","備用鞋襪","low","👟");
+  }else{
+    add("clothes","薄外套","low","🧥");
+  }
+
+  const mustWash = ["hostel","camp","friend"].includes(o.lodging);
+  add("wash","牙刷牙膏","mid","🪥");
+  add("wash","洗面乳","low","🧼",true);
+  add("wash","洗髮精 / 沐浴乳（旅行分裝）", mustWash ? "mid" : "low","🧴");
+  add("wash","保養品 / 乳液","low","🧴",true);
+  add("wash","毛巾", mustWash ? "mid" : "low","🧺");
+  if(o.season==="summer"||A("beach")) add("wash","防曬乳","mid","🧴");
+
+  add("elec","手機","high","📱");
+  add("elec","手機充電器＋充電線","high","🔌");
+  add("elec","行動電源","mid","🔋");
+  if(A("abroad")){
+    add("elec","萬用轉接頭","mid","🔌");
+    add("elec","網路 SIM 卡 / WiFi 機","mid","📶");
+  }
+  add("elec","耳機","low","🎧",true);
+  if(A("business")) add("elec","筆電＋筆電充電器","high","💻");
+
+  add("med","腸胃藥","mid","💊");
+  add("med","止痛退燒藥","mid","💊");
+  add("med","OK繃 / 小護理包","low","🩹",true);
+  if(B("meds")) add("med","固定藥物（每日服用，多帶 2 天份）","high","💊");
+  else add("med","個人常用藥","mid","💊");
+  if(B("motion")||o.transport==="bus"||o.transport==="car") add("med","暈車暈機藥","mid","🤢");
+  if(B("allergy")){
+    add("med","過敏藥","high","🤧");
+    add("med","口罩（過敏防護）","mid","😷");
+  }
+  if(o.season==="summer"||A("camping")||A("beach")) add("med","防蚊液","low","🦟",true);
+  if(A("family")) add("med","兒童用藥 / 體溫計","mid","🌡️");
+
+  if(B("cold")){
+    add("clothes","加厚外套（怕冷加碼）","mid","🧥");
+    add("other","暖暖包","mid","🔥");
+  }
+  if(B("hot")){
+    add("other","隨身小風扇","low","🌬️",true);
+    add("other","吸汗小毛巾","low","🧻",true);
+    add("other","水壺（隨時補水）","mid","💧");
+  }
+  if(B("lens")){
+    add("wash","隱形眼鏡（多帶備用）","high","👁️");
+    add("wash","隱形眼鏡盒＋藥水","high","🧴");
+    add("wash","備用眼鏡","mid","👓");
+  }else{
+    add("other","眼鏡（如有配戴）","mid","👓",true);
+  }
+  if(B("sleep")){
+    add("other","耳塞","mid","👂");
+    add("other","眼罩","mid","😴");
+    add("other","頸枕","low","🛏️",true);
+  }
+
+  if(A("concert")){
+    add("activity","演唱會門票 / 電子票","high","🎫");
+    add("activity","應援物（手燈、毛巾）","mid","✨");
+    add("activity","小望遠鏡","low","🔭",true);
+    add("activity","透明袋（場館規定）","low","👜",true);
+  }
+  if(A("beach")){
+    add("activity","泳衣 / 泳褲","mid","🩱");
+    add("activity","蛙鏡 / 泳帽","low","🥽",true);
+    add("activity","海灘拖鞋","low","🩴");
+    add("activity","防水手機袋","low","📱",true);
+  }
+  if(A("camping")||o.lodging==="camp"){
+    add("activity","帳篷 / 睡袋","high","⛺");
+    add("activity","睡墊","mid","🛏️");
+    add("activity","頭燈 / 露營燈","mid","🔦");
+    add("activity","炊具 / 餐具","mid","🍳");
+    add("activity","垃圾袋","low","🗑️");
+  }
+  if(A("business")){
+    add("activity","名片","mid","💳");
+    add("activity","簡報資料 / USB","high","📊");
+    add("activity","正式服裝 / 皮鞋","mid","👔");
+  }
+  if(A("family")){
+    add("activity","小孩衣物與備用衣","mid","👶");
+    add("activity","零食 / 水壺","low","🍪",true);
+    add("activity","小玩具 / 安撫物","low","🧸",true);
+    add("activity","濕紙巾","mid","🧻");
+  }
+  /* 使用者自填的特殊活動：先放一個通用裝備確認項（AI 連線時會再加碼具體物品） */
+  (o.customActs||[]).forEach(act=>{
+    add("activity",`${act}：專屬裝備 / 服裝 / 票券確認`,"mid","🎯");
+  });
+
+  if(o.lodging==="hostel"){
+    add("lodging","小鎖頭（置物櫃用）","mid","🔒");
+    add("lodging","室內拖鞋","mid","🩴");
+    add("lodging","快乾浴巾","mid","🧺");
+    if(!B("sleep")) add("lodging","耳塞（多人房神器）","mid","👂");
+    add("lodging","盥洗包掛勾袋","low","🪝",true);
+  }
+  if(o.lodging==="bnb"){
+    add("lodging","個人盥洗備品（民宿不一定提供）","mid","🧴");
+    add("lodging","室內拖鞋","low","🩴",true);
+  }
+  if(o.lodging==="friend"){
+    add("lodging","伴手禮（給親友的心意）","mid","🎁");
+    add("lodging","自己的睡衣與拖鞋","mid","🛌");
+    add("lodging","個人盥洗用品","mid","🪥");
+  }
+  if(o.lodging==="camp"){
+    add("lodging","盥洗用品全套（營地自理）","mid","🧴");
+    add("lodging","保暖睡衣","mid","🛌");
+  }
+
+  if(o.style==="safe"){
+    add("style","備用充電線","mid","🔌");
+    add("style","備用現金（分開放）","mid","💵");
+    add("style","證件影本 / 大頭照","mid","📄");
+    add("style","針線包 / 安全別針","low","🪡",true);
+    add("style","輕便雨衣（以防萬一）","low","☔");
+    add("style","小型急救包","mid","🩹");
+  }
+  if(o.style==="photo"){
+    add("style","相機 / 記憶卡 / 相機電池","mid","📷");
+    add("style","自拍棒 / 小腳架","low","🤳");
+    add("style","化妝包＋補妝小物","mid","💄");
+    add("style","飾品配件（耳環、帽子、墨鏡）","low","🕶️");
+    add("style","百搭外套（拍照神器）","low","🧥");
+  }
+  if(o.style==="shop"){
+    add("style","摺疊購物袋 / 備用袋","mid","🛍️");
+    add("style","行李秤","mid","⚖️");
+    add("style","緩衝包材（氣泡袋）","low","📦",true);
+  }
+
+  add("other","鑰匙（家門 / 車）","high","🔑");
+  add("other","環保袋 / 購物袋","low","🛍️",true);
+  add("other","口罩","low","😷",true);
+  add("other","面紙 / 濕紙巾","low","🧻",true);
+  if(o.days>=4) add("other","壓縮袋 / 分裝袋","low","🎒",true);
+  if(o.shop!=="none"&&o.style!=="shop") add("other","摺疊購物袋","mid","🛍️");
+
+  let result = (o.style==="minimal") ? items.filter(i=>!i.optional||i.mine) : items;
+
+  const fset = forgotItems.map(f=>f.trim()).filter(Boolean);
+  const matched = new Set();
+  result.forEach(it=>{
+    fset.forEach(f=>{
+      if(it.name.includes(f) || f.includes(it.name.replace(/\s*×.*$/,""))){
+        it.forgot = true;
+        it.risk = bump(it.risk);
+        matched.add(f);
+      }
+    });
+  });
+  fset.filter(f=>!matched.has(f)).forEach(f=>{
+    result.push({cat:"other",name:f,risk:"high",emoji:"🔁",optional:false,checked:false,mine:false,forgot:true,custom:false});
+  });
+
+  const map = new Map();
+  result.forEach(it=>{
+    const k = it.name;
+    if(!map.has(k) || RISK_ORDER[it.risk] < RISK_ORDER[map.get(k).risk]) map.set(k, it);
+  });
+  return [...map.values()];
+}
+
+/* =========================================================
+   產生流程
+========================================================= */
+let currentItems = [];
+let currentOpt = null;
+
+function readOptions(){
+  return {
+    dest: $("destination").value.trim() || "你的目的地",
+    days: parseInt($("days").value) || 3,
+    season: $("season").value,
+    activities: [...document.querySelectorAll("#activityChips input:checked")].map(i=>i.value),
+    customActs: $("actCustom").value.split(/[、,，\/\s]+/).map(s=>s.trim()).filter(Boolean).slice(0,5),
+    transport: document.querySelector("#transportChips input:checked").value,
+    lodging: document.querySelector("#lodgingChips input:checked").value,
+    style: document.querySelector("#styleChips input:checked").value,
+    body: [...document.querySelectorAll("#bodyChips input:checked")].map(i=>i.value),
+    cap: document.querySelector("#capChips input:checked").value,
+    shop: document.querySelector("#shopChips input:checked").value,
+  };
+}
+
+$("generateBtn").addEventListener("click", () => {
+  const o = readOptions();
+  const stages = [
+    `正在閱讀「${o.dest}」的行程資料⋯⋯`,
+    `載入你的個人必帶清單（${mineItems.length} 項）⋯⋯`,
+    forgotItems.length ? `翻出你的忘帶黑歷史，特別加強盯防 👀` : `分析${SEASON_TEXT[o.season]}的天氣與穿搭需求⋯⋯`,
+    `套用「${STYLE_TEXT[o.style]}」打包風格⋯⋯`,
+    geminiKey ? `🌐 連線 Gemini AI，即時生成個人化分析⋯⋯` : `計算 ${CAP_TEXT[o.cap]} 的空間配置⋯⋯`,
+    geminiKey ? `AI 正在認真思考「${o.dest}」的眉角⋯⋯` : `整理清單中⋯⋯`
+  ];
+  $("aiThink").classList.add("show");
+  $("generateBtn").disabled = true;
+  let si = 0;
+  $("thinkText").textContent = stages[0];
+  const stageTimer = setInterval(()=>{
+    si++;
+    $("thinkText").textContent = stages[Math.min(si, stages.length-1)];
+  }, 700);
+
+  /* 規則引擎先產生基本清單，再把品項名稱交給 AI 避免重複推薦 */
+  const baseItems = buildItems(o);
+
+  /* 不論有無連線，都記錄 Prompt 供透明窗展示 */
+  const analysisPrompt = buildAIPrompt(o, baseItems.map(i=>i.name));
+  promptLog.analysis = {prompt: analysisPrompt, model:"—", ms:0, ok:null};
+
+  /* 真 AI 呼叫與最短等待時間並行；失敗自動降級為離線模擬 */
+  const aiPromise = geminiKey
+    ? (()=>{
+        const t0 = Date.now();
+        return callGemini(analysisPrompt)
+          .then(t=>{
+            promptLog.analysis = {prompt: analysisPrompt, model:lastModelUsed, ms:Date.now()-t0, ok:true};
+            return JSON.parse(stripFences(t));
+          })
+          .catch(()=>{
+            promptLog.analysis = {prompt: analysisPrompt, model:"—", ms:Date.now()-t0, ok:false};
+            return null;
+          });
+      })()
+    : Promise.resolve(null);
+  const minWait = new Promise(r=>setTimeout(r, 3200));
+
+  Promise.all([aiPromise, minWait]).then(([ai])=>{
+    clearInterval(stageTimer);
+    $("aiThink").classList.remove("show");
+    $("generateBtn").disabled = false;
+
+    currentOpt = o;
+    currentItems = baseItems;   /* 清單基底永遠由規則引擎產生 */
+    reviewResolved.clear();     /* 新旅程，重置回顧狀態 */
+    genToken++;                 /* 緊急檢查會依新清單重建 */
+    generated = true;
+    updateLocks();
+
+    /* 摘要 / 反問 / 建議 / AI 推薦品項：AI 成功用 AI，失敗用句庫 */
+    const aiSum = ai ? normalizeSummary(ai.summary) : null;
+    const aiOK = ai && aiSum && Array.isArray(ai.questions) && ai.advice;
+    aiMode = aiOK ? "online" : "offline";
+    setAiModeTags();
+
+    let aiItemCount = 0;
+    if(aiOK && Array.isArray(ai.items)){
+      aiItemCount = mergeAIItems(ai.items);
+    }
+
+    renderChecklist();
+    renderHotel(o);
+    renderTips(o);
+    refreshDashboard();
+
+    if(aiOK){
+      renderAdviceData(ai.advice, o);
+      navTo("analysis");
+      typeSummary(aiSum.tldr, () => {
+        renderSummarySections(aiSum.sections);
+        appendQuestionCards(normalizeQuestions(ai.questions), aiSum.sections.length);
+      });
+      toast(aiItemCount
+        ? `🌐 AI 分析完成，並為「${o.dest}」加碼推薦了 ${aiItemCount} 項物品！`
+        : "🌐 Gemini AI 分析完成，所有功能已解鎖！");
+    }else{
+      renderAdvice(o);
+      navTo("analysis");
+      const sum = buildSummary(o);
+      typeSummary(sum.tldr, () => {
+        renderSummarySections(sum.sections);
+        appendQuestionCards(buildQuestions(o), sum.sections.length);
+      });
+      toast(geminiKey ? "⚠️ AI 連線失敗，已自動切換離線模擬" : "🎉 清單產生完成（離線模擬模式）");
+    }
+  });
+});
+
+/* 將 AI 推薦的目的地專屬品項合併進清單（去重、驗證格式） */
+function mergeAIItems(items){
+  let count = 0;
+  items.slice(0, 8).forEach(raw=>{
+    if(!raw || !raw.name) return;
+    const name = String(raw.name).trim().slice(0, 20);
+    if(!name) return;
+    /* 與既有品項名稱重複或互相包含就跳過 */
+    const dup = currentItems.some(i=>{
+      const a = i.name.replace(/\s*×.*$/,"");
+      return a.includes(name) || name.includes(a);
+    });
+    if(dup) return;
+    const risk = ["high","mid","low"].includes(raw.risk) ? raw.risk : "mid";
+    currentItems.push({
+      cat:"ai", name,
+      risk,
+      emoji: (typeof raw.emoji==="string" && raw.emoji.trim()) ? raw.emoji.trim().slice(0,4) : "🤖",
+      reason: raw.reason ? String(raw.reason).slice(0, 40) : "",
+      optional:false, checked:false, mine:false, forgot:false, custom:false, ai:true
+    });
+    count++;
+  });
+  return count;
+}
+
+/* =========================================================
+   儀表板
+========================================================= */
+function refreshDashboard(){
+  $("dashEmpty").classList.toggle("hidden", generated);
+  $("dashFull").classList.toggle("hidden", !generated);
+  if(!generated) return;
+  const total = currentItems.length;
+  const done = currentItems.filter(i=>i.checked).length;
+  const high = currentItems.filter(i=>!i.checked && i.risk==="high").length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  $("dashTrip").textContent = `${currentOpt.dest}・${currentOpt.days} 天`;
+  $("dashProgress").textContent = pct + "%";
+  $("dashProgress").className = "s-value" + (pct===100 ? " good" : "");
+  $("dashBar").style.width = pct + "%";
+  $("dashHigh").textContent = high + " 項";
+  $("dashHigh").className = "s-value" + (high>0 ? " danger" : " good");
+  $("dashForgot").textContent = forgotItems.length + " 項";
+}
+
+/* =========================================================
+   AI 分析摘要（打字機）
+========================================================= */
+function buildSummary(o){
+  const sections = [];
+  const tldr = pick([
+    `${o.dest} ${o.days} 天的行程分析完成！重點都幫你整理在下面 👇`,
+    `收到～${o.dest} 這趟我看完了，幾個重點直接看卡片 👇`,
+    `${o.dest} 耶，不錯的選擇！${o.days} 天的打包重點如下 👇`
+  ]);
+
+  sections.push({icon:"🌤️", title:"天氣穿搭", text:{
+    spring:"春天早晚溫差大，白天可能短袖、晚上就需要外套，洋蔥式穿搭最聰明；薄外套記得放在行李最好拿的位置，氣溫一降馬上能披上。",
+    summer:"夏天悶熱，衣服以透氣排汗材質為主，但防曬乳和冷氣房用的薄外套千萬別省——不然不是在外面曬傷，就是在室內冷到發抖，兩種都很掃興。",
+    autumn:"秋天微涼舒適，帶一件好看又保暖的外套幾乎能應付所有場合；早晚記得多披一件，白天太陽出來覺得熱，再收進包包就好。",
+    winter:"冬天保暖是頭等大事！最厚的羽絨衣建議直接穿在身上省行李空間，發熱衣多帶一件當備援；手套毛帽別忘，耳朵凍起來是真的痛。",
+    rainy:"這個季節常下雨，雨具是這趟的主角！鞋子建議選快乾材質，並多塞幾雙襪子和塑膠袋——濕襪子走一整天的痛苦，經歷過的人都懂。"
+  }[o.season]});
+
+  const styleLine = {
+    normal:"", 
+    minimal:"極簡派：我已幫你砍掉非必要的小物、衣服量減半，缺的就在當地簡單手洗或補買；行李越輕、移動越自由，旅行品質反而會更好。",
+    safe:"安全感派：備用充電線、分開放的備用現金、證件影本和小型急救包都排進清單了，墨菲定律想找你麻煩也無從下手，安心出發吧。",
+    photo:"拍照派：穿搭多帶兩套，化妝包、飾品配件、相機和小腳架一個都不少；建議出發前先想好每天的穿搭組合，拍起來省時又好看 📸",
+    shop:"購物派：去程行李我幫你壓到最少，摺疊購物袋和行李秤都備好了；記得把最大的空間留給戰利品，回程才能盡情血拼不心虛！",
+    lazy:"懶人派：我把「最不能忘」的物品全部抓到清單最上面的優先區，先把那一區搞定就贏了一半，剩下的東西有空再慢慢勾就好。"
+  }[o.style];
+  if(styleLine) sections.push({icon:"🎒", title:"打包風格", text:styleLine});
+
+  const bodyLines = [];
+  if(o.body.includes("cold")) bodyLines.push("怕冷→暖暖包＋加厚外套都加進清單了");
+  if(o.body.includes("hot")) bodyLines.push("怕熱→水壺隨時補水，小風扇也備著");
+  if(o.body.includes("motion")) bodyLines.push("暈車藥記得上車前 30 分鐘吃才有效");
+  if(o.body.includes("allergy")) bodyLines.push("過敏藥標成高風險，換環境最容易發作");
+  if(o.body.includes("lens")) bodyLines.push("隱形眼鏡、藥水、備用眼鏡是高風險三件組");
+  if(o.body.includes("meds")) bodyLines.push("固定藥物多帶兩天份，行程延誤才不慌");
+  if(o.body.includes("sleep")) bodyLines.push("耳塞和眼罩是淺眠者的旅行救星");
+  if(bodyLines.length) sections.push({icon:"💪", title:"身體需求", text:"為你的身體狀況做了這些安排——" + bodyLines.join("；") + "。出門在外，照顧好自己比什麼都重要。"});
+
+  if(o.customActs && o.customActs.length){
+    sections.push({icon:"🎯", title:"特殊活動", text:`你安排了「${o.customActs.join("、")}」，這類活動的專屬裝備、服裝和票券我放了確認項在清單裡，記得逐一核對（連上 AI 可獲得更具體的裝備推薦）。`});
+  }
+
+  sections.push({icon:"🏨", title:"住宿提醒", text:{
+    hotel:"住飯店備品通常很齊全，牙刷、沐浴乳、吹風機多半都有，盥洗用品可以放心少帶；不過退房前記得檢查保險箱和插座附近，那是最容易忘東西的地方。",
+    hostel:"住青旅要自備盥洗用品、室內拖鞋和置物櫃鎖頭，多人房請務必帶耳塞——室友的打呼聲是不可控因素，相信我，這小小的投資絕對值得。",
+    bnb:"民宿的備品看緣分，有的什麼都有、有的什麼都沒有，盥洗用品自己帶一套最保險；訂房頁面通常會列出提供項目，出發前再確認一次。",
+    camp:"露營就是全部自理，帳篷、睡袋、燈具、炊具缺一樣晚上都會非常有感；裝備清單我幫你列齊了，出發前對著清單逐項核對一遍最安心。",
+    friend:"住親友家，伴手禮是基本禮貌，挑當地名產或對方喜歡的東西都好；自己的睡衣、拖鞋和盥洗用品也帶著，住起來彼此都更自在。"
+  }[o.lodging]});
+
+  if(forgotItems.length){
+    sections.push({icon:"🔁", title:"黑歷史警報", text:`你曾經忘帶「${forgotItems.slice(0,3).join("、")}」，這次它們已被我提高風險等級並特別標示；出門前最後再親手摸一次確認，不要重蹈覆轍！`});
+  }
+
+  sections.push({icon:"✨", title:"出發吧", text:pick([
+    "清單已經就緒，邊打包邊勾選，完蛋級的物品優先處理；全部整理完之後，記得回來讓我做一次漏帶風險掃描，確保萬無一失！",
+    "下面還有容易忽略的小問題和打包小撇步，看完就可以前往清單開始打包；有想到 AI 沒列的東西，清單頁也能自己手動加上去！",
+    "重點都整理在卡片裡了！紅色完蛋級的物品請最優先放進包包——真弄丟了它們，我也只能隔著螢幕乾著急，幫不上忙 😆"
+  ])});
+
+  return {tldr, sections};
+}
+
+/* 把 AI 回傳的 summary 正規化成 {tldr, sections}（容錯：純文字也能轉） */
+function normalizeSummary(s){
+  if(s && typeof s==="object" && s.tldr && Array.isArray(s.sections)){
+    const secs = s.sections
+      .filter(x=>x && x.text)
+      .map(x=>({icon:String(x.icon||"💡").trim().slice(0,4)||"💡", title:String(x.title||"重點").slice(0,12), text:String(x.text).slice(0,160)}))
+      .slice(0,7);
+    if(secs.length) return {tldr:String(s.tldr).slice(0,80), sections:secs};
+  }
+  if(typeof s==="string" && s.trim()){
+    const parts = s.split(/\n\n+/).map(t=>t.trim()).filter(Boolean);
+    return {
+      tldr: parts[0] || s.slice(0,60),
+      sections: parts.slice(1,7).map((t,i)=>({icon:"💡", title:`重點 ${i+1}`, text:t.slice(0,160)}))
+    };
+  }
+  return null;
+}
+
+function renderSummarySections(sections){
+  $("sumSections").innerHTML = (sections||[]).map((s,i)=>`
+    <div class="sum-card" style="animation-delay:${(i*0.12).toFixed(2)}s">
+      <div class="sum-head">${esc(s.icon)} ${esc(s.title)}</div>
+      <div class="sum-text">${esc(s.text)}</div>
+    </div>`).join("");
+}
+
+let typeTimer = null;
+function typeSummary(text, onDone){
+  const el = $("summaryText");
+  const cursor = $("typeCursor");
+  el.textContent = "";
+  cursor.style.display = "inline-block";
+  $("sumSections").innerHTML = "";
+  clearInterval(typeTimer);
+  let i = 0;
+  typeTimer = setInterval(()=>{
+    el.textContent = text.slice(0, i += 2);
+    if(i >= text.length){
+      clearInterval(typeTimer);
+      cursor.style.display = "none";
+      onDone && onDone();
+    }
+  }, 16);
+}
+
+/* =========================================================
+   AI 反問
+========================================================= */
+/* 反問題庫：每題含短標題與「問題＋為什麼想問你」的說明（離線模式用） */
+function buildQuestions(o){
+  const A = v => o.activities.includes(v);
+  const B = v => o.body.includes(v);
+  const pool = [];
+  if(forgotItems.length) pool.push({icon:"🔁", title:"黑歷史確認", text:`你的黑歷史裡有「${forgotItems[0]}」，它現在在哪裡？以前忘過的東西最容易再忘一次，所以我特別想先問這題——現在就去親手確認一下吧。`});
+  if(o.customActs && o.customActs.length) pool.push({icon:"🎯", title:"特殊裝備", text:`「${o.customActs[0]}」需要的專屬裝備、服裝或票券都備齊了嗎？特殊活動的東西平常用不到，最容易被排除在打包直覺之外，務必逐項核對。`});
+  if(o.transport==="plane") pool.push({icon:"🔋", title:"行動電源", text:"行動電源放進「隨身」行李了嗎？航空規定它不能託運，安檢被攔下來輕則當場丟棄、重則延誤行程，這是機場最常見的悲劇之一。"});
+  if(A("abroad")) pool.push({icon:"🛂", title:"護照效期", text:"護照效期還有六個月以上嗎？很多國家入境會卡這條規定，太多人到機場櫃檯才發現飛不了——出發前花十秒翻開確認，絕對划算。"});
+  if(B("lens")) pool.push({icon:"👁️", title:"藥水存量", text:"隱形眼鏡藥水的量夠整趟旅程嗎？外地不一定買得到慣用品牌，建議帶小瓶裝放隨身行李，遇到轉機或行李延誤也不怕沒得用。"});
+  if(B("meds")) pool.push({icon:"💊", title:"藥物分裝", text:"固定藥物分裝好了嗎？建議隨身包和行李箱各放一份做雙保險——萬一行李延誤或遺失，至少隨身那份能撐過最初幾天。"});
+  if(o.lodging==="hostel") pool.push({icon:"🔒", title:"鎖頭確認", text:"青旅置物櫃的鎖頭帶了嗎？多數青旅只提供櫃子不提供鎖，貴重物品不上鎖等於在考驗人性——這題我很希望你的答案是「有」。"});
+  if(o.lodging==="friend") pool.push({icon:"🎁", title:"伴手禮", text:"給親友的伴手禮選好了嗎？空手上門會被唸很久 😂 不想一路扛的話，也可以先查好對方家附近的店，抵達當天再買最新鮮。"});
+  if(o.season==="rainy") pool.push({icon:"☔", title:"濕鞋備案", text:"鞋子如果淋濕了有備案嗎？備用襪子和塑膠袋是救星——濕襪子走一整天不只難受還容易起水泡，多帶幾雙也不佔什麼空間。"});
+  if(o.season==="winter"||B("cold")) pool.push({icon:"🔥", title:"暖暖包", text:"暖暖包準備了嗎？口袋裡有一包，戶外行程的幸福感完全不一樣；它便宜又輕巧，卻是出門前最容易被忘記的小東西之一。"});
+  if(o.season==="summer"||A("beach")) pool.push({icon:"🧴", title:"防曬確認", text:"防曬乳真的放進行李了嗎？第一天就曬傷的話，後面每天都會痛苦地想起這題；放在浴室想說「等等再拿」的防曬乳，最容易被留在家。"});
+  if(A("concert")) pool.push({icon:"🎫", title:"門票位置", text:"演唱會門票是電子票還是實體票？實體票請「現在」就放進要帶的包包——太多人到場館門口才發現票還安穩躺在家裡桌上。"});
+  if(A("business")) pool.push({icon:"📊", title:"簡報備份", text:"簡報檔除了筆電裡那份，有另外存雲端或 USB 嗎？墨菲定律最愛挑重要場合發作，三十秒的備份動作能救你一整場會議。"});
+  if(o.shop==="heavy") pool.push({icon:"⚖️", title:"行李額度", text:"回程的行李額度查過了嗎？大量購物時，超重費常常比商品本身還貴；先搞清楚限重，必要時改用當地寄送服務反而省錢。"});
+  if(o.transport==="car") pool.push({icon:"🚗", title:"車況檢查", text:"出發前檢查過胎壓和油量了嗎？順手把手機架和充電線先裝上車，導航也先設好，上路後就不用在路肩手忙腳亂處理這些小事。"});
+  if(o.days>=5) pool.push({icon:"🧺", title:"洗衣設備", text:"住宿地點有洗衣設備嗎？有的話衣服直接帶一半就好，行李會輕超多——這是長天數旅行最簡單、最有效的行李減重技巧。"});
+  pool.push({icon:"📄", title:"證件備份", text:"重要證件拍照備份了嗎？存一份在雲端，萬一遺失，補辦時有影本能省下大量時間——未來的你會感謝現在花的這一分鐘。"});
+  pool.push({icon:"🗑️", title:"垃圾處理", text:"出門前垃圾記得倒嗎？尤其是廚餘——不然旅行回來、開門迎接你的那個味道，會讓美好假期的回憶瞬間蒸發 😂"});
+  pool.push({icon:"🪴", title:"家裡安排", text:"家裡的植物澆水、寵物照顧都安排好了嗎？出門前把家裡的「生命維持系統」交接清楚，人在外面玩起來才不會一直掛心。"});
+  return pool.slice(0, 3);
+}
+
+/* 反問卡片：與分類卡相同格式（短標題＋說明文字），無互動按鈕 */
+function normalizeQuestions(arr){
+  return (Array.isArray(arr) ? arr : [])
+    .map(q=>{
+      if(q && typeof q==="object" && q.text) return {
+        icon: String(q.icon||"🤔").trim().slice(0,4)||"🤔",
+        title: String(q.title||"問你一下").slice(0,12),
+        text: String(q.text).slice(0,160)
+      };
+      if(typeof q==="string" && q.trim()) return {icon:"🤔", title:"問你一下", text:q.slice(0,160)};
+      return null;
+    })
+    .filter(Boolean)
+    .slice(0,3);
+}
+
+function appendQuestionCards(qs, baseIndex=0){
+  const box = $("sumSections");
+  qs.forEach((q,i)=>{
+    const card = document.createElement("div");
+    card.className = "sum-card q-card";
+    card.style.animationDelay = ((baseIndex+i)*0.12).toFixed(2)+"s";
+    card.innerHTML = `
+      <div class="sum-head">${esc(q.icon)} ${esc(q.title)}</div>
+      <div class="sum-text">${esc(q.text)}</div>`;
+    box.appendChild(card);
+  });
+}
+
+/* =========================================================
+   打包清單
+========================================================= */
+function itemHTML(it, idx){
+  /* 打包清單中不顯示風險等級與「個人必帶」標籤（風險資訊保留在風險分析頁） */
+  const tags = [];
+  if(it.forgot) tags.push(`<span class="tag forgot">🔁 曾忘帶，再確認</span>`);
+  if(it.custom) tags.push(`<span class="tag custom">✍️ 自己加的</span>`);
+  if(it.ai) tags.push(`<span class="tag ai">🤖 AI 推薦</span>`);
+  return `
+    <label class="item ${it.checked?"done":""} ${it.forgot?"is-forgot":""} ${it.mine?"is-mine":""} ${it.ai?"is-ai":""}">
+      <input type="checkbox" data-idx="${idx}" ${it.checked?"checked":""}>
+      <span class="iname-wrap">
+        <span class="iname">${it.emoji} ${esc(it.name)}</span>
+        ${it.reason?`<small class="ireason">💡 ${esc(it.reason)}</small>`:""}
+      </span>
+      <span class="tags">${tags.join("")}</span>
+      <button class="item-del" data-del="${idx}" title="從清單移除">✕</button>
+    </label>`;
+}
+
+function renderChecklist(){
+  const wrap = $("checklist");
+  wrap.innerHTML = "";
+  const lazy = currentOpt && currentOpt.style==="lazy";
+
+  let usedIdx = new Set();
+  if(lazy){
+    const highs = currentItems.map((it,i)=>({it,i})).filter(x=>x.it.risk==="high");
+    if(highs.length){
+      const block = document.createElement("div");
+      block.className = "cat-block priority";
+      block.innerHTML = `<div class="cat-head">⚡ 懶人優先區・最重要、最不能忘<span class="cat-count">${highs.length} 項</span></div>`;
+      const grid = document.createElement("div");
+      grid.className = "items";
+      grid.innerHTML = highs.map(x=>itemHTML(x.it, x.i)).join("");
+      block.appendChild(grid);
+      wrap.appendChild(block);
+      highs.forEach(x=>usedIdx.add(x.i));
+    }
+  }
+
+  CATS.forEach(cat=>{
+    const entries = currentItems.map((it,i)=>({it,i}))
+      .filter(x=>x.it.cat===cat.key && !usedIdx.has(x.i));
+    if(!entries.length) return;
+    entries.sort((a,b)=>RISK_ORDER[a.it.risk]-RISK_ORDER[b.it.risk]);
+    const block = document.createElement("div");
+    block.className = "cat-block";
+    block.innerHTML = `<div class="cat-head">${cat.emoji} ${cat.name}<span class="cat-count">${entries.length} 項</span></div>`;
+    const grid = document.createElement("div");
+    grid.className = "items";
+    grid.innerHTML = entries.map(x=>itemHTML(x.it, x.i)).join("");
+    block.appendChild(grid);
+    wrap.appendChild(block);
+  });
+
+  wrap.querySelectorAll("input[type=checkbox]").forEach(cb=>{
+    cb.addEventListener("change", e=>{
+      const it = currentItems[+e.target.dataset.idx];
+      it.checked = e.target.checked;
+      e.target.closest(".item").classList.toggle("done", it.checked);
+      updateProgress();
+      updateBlockStates();
+      refreshDashboard();
+    });
+  });
+  wrap.querySelectorAll(".item-del").forEach(btn=>{
+    btn.addEventListener("click", e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      currentItems.splice(+btn.dataset.del, 1);
+      renderChecklist();
+      if(currentOpt) renderHotel(currentOpt);
+      refreshDashboard();
+    });
+  });
+  updateProgress();
+  updateBlockStates();
+}
+
+/* =========================================================
+   智慧新增品項：AI 分類（失敗時降級為規則式關鍵字分類器）
+========================================================= */
+const CAT_KEYS = ["docs","clothes","wash","elec","med","activity","lodging","other"];
+const CAT_EMOJI = {docs:"🪪",clothes:"👕",wash:"🧴",elec:"🔌",med:"💊",activity:"🎯",lodging:"🏨",other:"🎒"};
+
+/* 規則式分類器（離線降級用）：關鍵字比對 */
+function heuristicClassify(name){
+  const rules = [
+    {re:/胰島素|處方|吸入器|心臟|血壓|血糖|癲癇/, cat:"med", risk:"high", emoji:"💊"},
+    {re:/藥|膏|OK繃|繃帶|維他命|保健|體溫計/, cat:"med", risk:"mid", emoji:"💊"},
+    {re:/護照|簽證|身分證|駕照|車票|機票|門票|錢|現金|信用卡|金融卡/, cat:"docs", risk:"high", emoji:"🪪"},
+    {re:/充電|電源|電池|延長線|相機|耳機|平板|筆電|switch|遊戲機|讀卡|記憶卡|腳架/i, cat:"elec", risk:"mid", emoji:"🔌"},
+    {re:/牙|洗髮|沐浴|洗面|卸妝|乳液|保養|防曬|化妝|毛巾|梳|刮鬍|隱形眼鏡|衛生棉|棉條/, cat:"wash", risk:"mid", emoji:"🧴"},
+    {re:/衣|褲|裙|襪|帽|圍巾|外套|鞋|泳|內搭|手套/, cat:"clothes", risk:"low", emoji:"👕"},
+    {re:/枕|睡袋|拖鞋|耳塞|眼罩|盥洗包/, cat:"lodging", risk:"low", emoji:"🛏️"},
+    {re:/球|拍|雪|浮潛|釣|登山|健行|樂器|應援/, cat:"activity", risk:"mid", emoji:"🎯"},
+  ];
+  for(const r of rules) if(r.re.test(name)) return {cat:r.cat, risk:r.risk, emoji:r.emoji, by:"rule"};
+  return {cat:"other", risk:"low", emoji:"✍️", by:"rule"};
+}
+
+/* AI 分類器：判斷分類、風險與 emoji */
+async function aiClassify(name){
+  const prompt = `你是行李打包助手。請判斷物品「${name}」在打包清單中的分類與漏帶風險，只輸出 JSON、不要任何其他文字：
+{"cat":"docs(證件金錢)|clothes(衣物)|wash(盥洗)|elec(電子)|med(藥品)|activity(活動裝備)|lodging(住宿小物)|other(其他) 八選一的英文代碼","risk":"high(忘了會完蛋：證件、必要藥物、票券、無法替代的物品)|mid(忘了會很麻煩)|low(可當地補買的小物) 三選一","emoji":"一個最能代表此物品的emoji"}`;
+  const t0 = Date.now();
+  try{
+    const t = await callGemini(prompt, 9000);
+    const j = JSON.parse(stripFences(t));
+    if(!CAT_KEYS.includes(j.cat) || !["high","mid","low"].includes(j.risk)) throw new Error("bad-classify");
+    promptLog.classify = {prompt, model:lastModelUsed, ms:Date.now()-t0, ok:true};
+    const emoji = (typeof j.emoji==="string" && j.emoji.trim()) ? j.emoji.trim().slice(0,4) : CAT_EMOJI[j.cat];
+    return {cat:j.cat, risk:j.risk, emoji, by:"ai"};
+  }catch(e){
+    promptLog.classify = {prompt, model:"—", ms:Date.now()-t0, ok:false};
+    throw e;
+  }
+}
+
+let addingBusy = false;
+async function addCustomItem(){
+  if(addingBusy) return;
+  const name = $("customName").value.trim();
+  if(!name) return;
+  if(currentItems.some(i=>i.name===name)){
+    $("customName").value = "";
+    toast("這個品項已經在清單裡囉！");
+    return;
+  }
+  const catSel = $("customCat").value;
+  const riskSel = $("customRisk").value;
+  const needAuto = catSel==="auto" || riskSel==="auto";
+
+  let cls = {cat:"other", risk:"low", emoji:"✍️", by:"manual"};
+  const btn = $("customAdd");
+
+  if(needAuto){
+    if(geminiKey){
+      addingBusy = true;
+      const oldText = btn.textContent;
+      btn.textContent = "🤖 AI 判斷中⋯";
+      btn.disabled = true;
+      try{ cls = await aiClassify(name); }
+      catch(e){ cls = heuristicClassify(name); }
+      btn.textContent = oldText;
+      btn.disabled = false;
+      addingBusy = false;
+    }else{
+      cls = heuristicClassify(name);
+    }
+  }
+  /* 使用者手動選的優先於自動判斷 */
+  const cat = catSel!=="auto" ? catSel : cls.cat;
+  const risk = riskSel!=="auto" ? riskSel : cls.risk;
+  const emoji = catSel!=="auto" && cls.by==="manual" ? "✍️" : cls.emoji;
+
+  currentItems.push({
+    cat, name, risk, emoji,
+    optional:false, checked:false, mine:false, forgot:false, custom:true
+  });
+  $("customName").value = "";
+  setTimeout(()=>{ $("customName").value = ""; }, 0);
+  renderChecklist();
+  if(currentOpt) renderHotel(currentOpt);
+  refreshDashboard();
+
+  const catName = (CATS.find(c=>c.key===cat)||{}).name || "其他";
+  const riskName = {high:"⚡ 忘了會完蛋", mid:"⚠️ 忘了會很麻煩", low:"🙂 一般"}[risk];
+  if(needAuto){
+    toast(cls.by==="ai"
+      ? `🤖 AI 判斷：「${name}」→ ${catName}・${riskName}`
+      : `📦 規則分類：「${name}」→ ${catName}・${riskName}`);
+  }else{
+    toast(`✍️ 已加入「${name}」`);
+  }
+}
+$("customAdd").addEventListener("click", addCustomItem);
+$("customName").addEventListener("keydown", e=>{ if(e.key==="Enter" && !isIME(e)) addCustomItem(); });
+
+function updateProgress(){
+  const total = currentItems.length;
+  const done = currentItems.filter(i=>i.checked).length;
+  $("progressNum").textContent = `${done} / ${total}`;
+  $("progressFill").style.width = total ? (done/total*100)+"%" : "0%";
+  /* 側欄徽章 */
+  $("navListBadge").textContent = total ? `${done}/${total}` : "—";
+  $("navListBadge").className = "nbadge" + (total && done===total ? " good" : "");
+  const high = currentItems.filter(i=>!i.checked && i.risk==="high").length;
+  $("navRiskBadge").textContent = total ? high : "—";
+  $("navRiskBadge").className = "nbadge" + (high>0 ? " alert" : total ? " good" : "");
+  const tdot = $("tabRiskDot");
+  if(tdot){
+    tdot.textContent = high;
+    tdot.style.display = (generated && high>0) ? "flex" : "none";
+  }
+}
+
+function updateBlockStates(){
+  document.querySelectorAll("#checklist .cat-block").forEach(b=>{
+    const inputs = [...b.querySelectorAll("input")];
+    b.classList.toggle("all-done", inputs.length>0 && inputs.every(i=>i.checked));
+  });
+}
+
+$("filterBtn").addEventListener("click", ()=>{
+  const on = document.body.classList.toggle("hide-done");
+  $("filterBtn").textContent = on ? "📋 顯示全部項目" : "👀 只看未完成";
+});
+
+/* 打包小撇步收合 */
+$("tipsToggle").addEventListener("click", ()=>{
+  const closed = $("tipsBody").classList.toggle("hidden");
+  $("tipsArrow").classList.toggle("closed", closed);
+});
+
+/* =========================================================
+   📸 AI 拍照核對行李（電腦視覺 / 多模態）
+========================================================= */
+$("photoToggle").addEventListener("click", ()=>{
+  const closed = $("photoBody").classList.toggle("hidden");
+  $("photoArrow").classList.toggle("closed", closed);
+});
+
+/* 圖片壓縮：縮到長邊 1024px 的 JPEG，控制傳輸量 */
+function fileToResizedBase64(file, maxDim=1024, quality=0.82){
+  return new Promise((res, rej)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      const scale = Math.min(1, maxDim/Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width*scale));
+      const h = Math.max(1, Math.round(img.height*scale));
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      const dataUrl = cv.toDataURL("image/jpeg", quality);
+      URL.revokeObjectURL(url);
+      res(dataUrl.split(",")[1]);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error("img-load")); };
+    img.src = url;
+  });
+}
+
+let photoFile = null;
+$("photoInput").addEventListener("change", e=>{
+  photoFile = e.target.files && e.target.files[0];
+  if(!photoFile) return;
+  const prev = $("photoPreview");
+  prev.src = URL.createObjectURL(photoFile);
+  prev.classList.remove("hidden");
+  $("photoGo").classList.remove("hidden");
+  $("photoResult").innerHTML = "";
+});
+
+function buildVisionPrompt(names){
+  return `你是行李核對助手。附上的照片是使用者打包好的行李物品。以下是打包清單中「尚未勾選」的品項名稱（JSON 陣列）：
+${JSON.stringify(names)}
+
+請仔細辨識照片中可見的物品，與清單比對後，只輸出 JSON、不要任何其他文字：
+{
+  "found": ["在照片中有看到的品項，字串必須與上方清單『逐字完全相同』，沒看到或不確定的不要列"],
+  "others": ["照片中看到、但不在清單上的物品名稱，繁體中文，最多 5 個"],
+  "note": "一句話的核對總結（30字內，口語、親切）"
+}`;
+}
+
+$("photoGo").addEventListener("click", async ()=>{
+  const resBox = $("photoResult");
+  if(!photoFile) return;
+  if(!geminiKey){
+    resBox.innerHTML = `<div class="photo-res bad"><b>⚠️ 需要 AI 連線</b>拍照核對使用 Gemini 的影像辨識能力，請先到「⚙️ AI 連線設定」貼上金鑰並測試連線。</div>`;
+    return;
+  }
+  const unchecked = currentItems.filter(i=>!i.checked);
+  if(!unchecked.length){
+    resBox.innerHTML = `<div class="photo-res ok"><b>🎉 清單已全部勾選</b>沒有需要核對的項目了，直接出發吧！</div>`;
+    return;
+  }
+  const btn = $("photoGo");
+  btn.disabled = true;
+  btn.textContent = "🤖 AI 看照片中⋯";
+  resBox.innerHTML = "";
+  try{
+    const base64 = await fileToResizedBase64(photoFile);
+    const names = unchecked.map(i=>i.name).slice(0, 60);
+    const prompt = buildVisionPrompt(names);
+    const t0 = Date.now();
+    const text = await callGemini(prompt, 20000, base64);
+    promptLog.vision = {prompt, model:lastModelUsed, ms:Date.now()-t0, ok:true};
+    const j = JSON.parse(stripFences(text));
+    const found = Array.isArray(j.found) ? j.found.map(String) : [];
+    const others = (Array.isArray(j.others) ? j.others.map(String) : []).slice(0,5);
+    const note = j.note ? String(j.note).slice(0,60) : "";
+
+    /* 比對並自動勾選：先逐字比對，再做寬鬆包含比對 */
+    const matched = [];
+    found.forEach(f=>{
+      let it = currentItems.find(i=>!i.checked && i.name===f);
+      if(!it){
+        const fk = f.replace(/\s*×.*$/,"").trim();
+        it = currentItems.find(i=>!i.checked && (i.name.includes(fk) || fk.includes(i.name.replace(/\s*×.*$/,"").trim())));
+      }
+      if(it && !matched.includes(it)){ it.checked = true; matched.push(it); }
+    });
+    if(matched.length){
+      renderChecklist();
+      refreshDashboard();
+    }
+
+    /* 高風險物品中仍未見到的，特別提醒 */
+    const stillHigh = currentItems.filter(i=>!i.checked && i.risk==="high").slice(0,6);
+    const cls = matched.length ? "ok" : "warn";
+    resBox.innerHTML = `<div class="photo-res ${cls}">
+      <b>${matched.length ? `✅ 辨識完成！已自動勾選 ${matched.length} 項` : "🔍 辨識完成，但沒有比對到清單上的物品"}</b>
+      ${matched.length ? `<div class="pr-line">📦 照片中看到：${matched.map(i=>esc(i.name)).join("、")}</div>` : `<div class="pr-line">可能是角度或光線問題，建議把物品攤平、避免堆疊再拍一次。</div>`}
+      ${others.length ? `<div class="pr-line">👀 照片中還看到（不在清單上）：${others.map(esc).join("、")}</div>` : ""}
+      ${stillHigh.length ? `<div class="pr-line">🚨 照片中沒看到這些完蛋級物品，請特別確認：${stillHigh.map(i=>esc(i.name)).join("、")}</div>` : ""}
+      ${note ? `<div class="pr-line">🤖 ${esc(note)}</div>` : ""}
+    </div>`;
+    toast(matched.length ? `📸 AI 認出 ${matched.length} 項，已自動勾選！` : "📸 辨識完成");
+  }catch(e){
+    promptLog.vision = promptLog.vision || null;
+    const msg = e.name==="AbortError" ? "辨識逾時" : (e.message||"未知錯誤");
+    resBox.innerHTML = `<div class="photo-res bad"><b>❌ 辨識失敗（${esc(msg)}）</b>請確認網路與金鑰正常後再試一次；照片太大或太暗也可能影響辨識。</div>`;
+  }
+  btn.disabled = false;
+  btn.textContent = "🔍 開始辨識";
+});
+
+/* Prompt 透明窗 */
+function promptMetaHTML(p){
+  const status = p.ok===true
+    ? `🌐 已送出（模型：${p.model}，耗時 ${(p.ms/1000).toFixed(1)} 秒）`
+    : p.ok===false
+      ? "⚠️ 連線失敗，該次已改用離線模擬"
+      : "📦 離線模式（此為連線時「會」送出的內容）";
+  return `<span>${status}</span><span>長度約 ${p.prompt.length} 字元</span>`;
+}
+function renderPromptWindow(){
+  const a = promptLog.analysis;
+  if(a){
+    $("promptText").textContent = a.prompt;
+    $("promptMeta").innerHTML = promptMetaHTML(a);
+  }else{
+    $("promptText").textContent = "還沒有紀錄——按「產生打包清單」後，這裡會顯示系統送出的完整 Prompt。";
+    $("promptMeta").innerHTML = "";
+  }
+  const c = promptLog.classify;
+  $("promptClassifyWrap").classList.toggle("hidden", !c);
+  if(c){
+    $("promptClassifyText").textContent = c.prompt;
+    $("promptClassifyMeta").innerHTML = promptMetaHTML(c);
+  }
+  const v = promptLog.vision;
+  $("promptVisionWrap").classList.toggle("hidden", !v);
+  if(v){
+    $("promptVisionText").textContent = v.prompt + "\n\n[＋ 附帶一張壓縮後的行李照片（inline_data, image/jpeg）]";
+    $("promptVisionMeta").innerHTML = promptMetaHTML(v);
+  }
+}
+$("promptToggle").addEventListener("click", ()=>{
+  const closed = $("promptBody").classList.toggle("hidden");
+  $("promptArrow").classList.toggle("closed", closed);
+  if(!closed) renderPromptWindow();
+});
+
+/* =========================================================
+   風險分析
+========================================================= */
+function renderRisk(){
+  const missing = currentItems.filter(i=>!i.checked);
+  const high = missing.filter(i=>i.risk==="high");
+  const mid  = missing.filter(i=>i.risk==="mid");
+  const low  = missing.filter(i=>i.risk==="low");
+  $("highNum").textContent = high.length;
+  $("midNum").textContent  = mid.length;
+  $("lowNum").textContent  = low.length;
+
+  const warnBox = $("aiWarnings");
+  warnBox.innerHTML = "";
+
+  const forgotMissing = missing.filter(i=>i.forgot);
+  if(forgotMissing.length){
+    const names = forgotMissing.slice(0,3).map(i=>`「${esc(i.name)}」`).join("、");
+    const div = document.createElement("div");
+    div.className = "warn-bubble memory";
+    div.innerHTML = `<span class="we">🔁</span><div><b>歷史會重演警報：</b>${names}${forgotMissing.length>3?` 等 ${forgotMissing.length} 項`:""}是你以前忘過的東西，現在又還沒勾⋯⋯AI 已經替你捏一把冷汗，拜託這次別再讓它留在家裡了！</div>`;
+    warnBox.appendChild(div);
+  }
+
+  const warnTpl = [
+    n=>`等一下！「${n}」還沒勾耶。這個忘了帶，旅行可能直接卡關，先去放進包包再回來吧 🙏`,
+    n=>`「${n}」還躺在清單上沒人理⋯⋯相信我，少了它你會在路上崩潰的，現在就去拿！`,
+    n=>`偵測到「${n}」尚未打包！這是「忘了會完蛋」等級的物品，拜託排在第一順位 🚨`,
+    n=>`欸欸，「${n}」呢？沒有它這趟旅程會很精彩（負面意義的那種），快確認一下！`
+  ];
+  const highNonForgot = high.filter(i=>!i.forgot);
+  if(highNonForgot.length){
+    const used = [];
+    highNonForgot.slice(0,3).forEach(i=>{
+      let t;
+      do { t = pick(warnTpl); } while(used.includes(t) && used.length < warnTpl.length);
+      used.push(t);
+      const div = document.createElement("div");
+      div.className = "warn-bubble";
+      div.innerHTML = `<span class="we">🚨</span><div><b>AI 警告：</b>${t(i.emoji+" "+esc(i.name))}</div>`;
+      warnBox.appendChild(div);
+    });
+    if(highNonForgot.length>3){
+      const div = document.createElement("div");
+      div.className = "warn-bubble";
+      div.innerHTML = `<span class="we">🚨</span><div>另外還有 <b>${highNonForgot.length-3} 項</b>完蛋級物品沒打包，全列在下面，一個都別放過！</div>`;
+      warnBox.appendChild(div);
+    }
+  } else if(!forgotMissing.length && mid.length){
+    const div = document.createElement("div");
+    div.className = "warn-bubble soft";
+    div.innerHTML = `<span class="we">😌</span><div><b>AI 檢查員：</b>關鍵物品都搞定了，不錯嘛！還有 ${mid.length} 項「忘了會很麻煩」的沒勾，趁現在補一下，路上少跑一趟商店。</div>`;
+    warnBox.appendChild(div);
+  }
+
+  const list = $("riskList");
+  list.innerHTML = "";
+  if(!missing.length){
+    warnBox.innerHTML = "";
+    list.innerHTML = `<div class="all-good">🎉 完美！每一項都打包好了，連黑歷史物品都沒放過，AI 檢查員給你 100 分，安心出發吧！</div>`;
+    return;
+  }
+
+  const sortForgotFirst = arr => [...arr].sort((a,b)=>(b.forgot?1:0)-(a.forgot?1:0));
+  const render = (arr, cls, badge) => sortForgotFirst(arr).forEach(i=>{
+    const row = document.createElement("div");
+    row.className = `risk-row ${cls}`;
+    row.innerHTML = `<span class="badge">${badge}</span> ${i.emoji} ${esc(i.name)} ${i.forgot?'<span class="tag forgot">🔁 曾忘帶，請再次確認</span>':""}`;
+    list.appendChild(row);
+  });
+  render(high,"high","🚨 高風險｜忘了會完蛋");
+  render(mid,"mid","😬 中風險｜忘了會很麻煩");
+  render(low,"low","🙂 低風險");
+}
+
+/* =========================================================
+   緊急檢查（個人化：從你的清單動態挑出最重要的 10 項）
+========================================================= */
+const URGENT_FALLBACK = [
+  {emoji:"📱", name:"手機"},
+  {emoji:"💳", name:"錢包"},
+  {emoji:"🔑", name:"鑰匙"},
+  {emoji:"🪪", name:"護照 / 身分證"},
+  {emoji:"🎫", name:"車票 / 機票"},
+  {emoji:"🔌", name:"充電器"},
+  {emoji:"🔋", name:"行動電源"},
+  {emoji:"💊", name:"常用藥"},
+  {emoji:"👓", name:"眼鏡 / 隱形眼鏡"},
+];
+const HOME_CHECK = {emoji:"🏠", name:"門窗、瓦斯、電器是否關好", tag:""};
+
+function buildUrgentList(){
+  if(!generated || !currentItems.length){
+    return [...URGENT_FALLBACK.map(u=>({...u, tag:""})), HOME_CHECK];
+  }
+  /* 優先順序：黑歷史 → 高風險 → 個人必帶 → 中風險，去重取 9 項 */
+  const seen = new Set();
+  const picked = [];
+  const take = (arr, tag) => arr.forEach(it=>{
+    if(picked.length >= 9 || seen.has(it.name)) return;
+    seen.add(it.name);
+    picked.push({emoji: it.emoji, name: it.name, tag});
+  });
+  take(currentItems.filter(i=>i.forgot), "🔁 黑歷史");
+  take(currentItems.filter(i=>i.risk==="high"), "");
+  take(currentItems.filter(i=>i.mine), "⭐ 必帶");
+  take(currentItems.filter(i=>i.risk==="mid"), "");
+  /* 第 10 項固定：出門前的居家安全 */
+  picked.push(HOME_CHECK);
+  return picked;
+}
+
+let genToken = 0;       /* 每次重新產生清單 +1 */
+let urgentToken = -1;   /* 緊急清單對應的產生版本 */
+
+function renderUrgent(){
+  const items = buildUrgentList();
+  $("urgentSub").textContent = generated
+    ? `AI 從你這次的清單挑出最重要的 ${items.length} 項（黑歷史與完蛋級優先），逐一確認，安心出門 🚪`
+    : "只檢查最重要的 10 項，逐一勾選確認，安心出門 🚪（產生清單後會改為個人化挑選）";
+  const list = $("urgentList");
+  list.innerHTML = "";
+  $("urgentDone").classList.remove("show");
+  items.forEach(u=>{
+    const lbl = document.createElement("label");
+    lbl.className = "urgent-item";
+    lbl.innerHTML = `<input type="checkbox"><span>${u.emoji} ${esc(u.name)}</span>${u.tag?`<span class="tag ${u.tag.includes("黑")?"forgot":"mine"}" style="margin-left:auto">${u.tag}</span>`:""}`;
+    lbl.querySelector("input").addEventListener("change", e=>{
+      lbl.classList.toggle("done", e.target.checked);
+      const all = [...list.querySelectorAll("input")].every(c=>c.checked);
+      $("urgentDone").classList.toggle("show", all);
+    });
+    list.appendChild(lbl);
+  });
+  urgentToken = genToken;
+}
+$("urgentReset").addEventListener("click", renderUrgent);
+renderUrgent();
+
+/* =========================================================
+   回顧與學習（閉環學習：忘帶結果回寫黑歷史）
+========================================================= */
+const reviewResolved = new Map(); // name -> "learned" | "skipped"（本次旅程的回顧狀態）
+
+function renderReview(){
+  const intro = $("reviewIntro");
+  const list = $("reviewList");
+  const done = $("reviewDone");
+  list.innerHTML = "";
+  done.classList.remove("show");
+
+  /* 回顧對象：清單中始終沒勾選的項目 */
+  const pending = currentItems.filter(i=>!i.checked && !reviewResolved.has(i.name));
+  const resolved = [...reviewResolved.values()];
+  const learnedCount = resolved.filter(v=>v==="learned").length;
+
+  if(!pending.length){
+    if(reviewResolved.size === 0){
+      intro.textContent = "";
+      list.innerHTML = `<div class="all-good">🎉 這趟清單上的每一項都打包了，零漏帶！AI 沒有新東西可以學，這是最好的結果～</div>`;
+    }else{
+      intro.textContent = "";
+      done.innerHTML = learnedCount
+        ? `🧠 回顧完成！AI 記住了 <b>${learnedCount}</b> 項忘帶紀錄，已寫進你的黑歷史——下次產生清單時會自動標示並提高風險，幫你盯緊！`
+        : `🎉 回顧完成！雖然有些東西沒勾，但都是不需要的——這趟實際上零漏帶，太強了！`;
+      done.classList.add("show");
+    }
+    return;
+  }
+
+  intro.innerHTML = `🤖 <b>AI 想跟你核對一下：</b>這次清單上有 <b>${pending.length}</b> 項始終沒被勾選。誠實告訴我——它們是「真的忘了帶」，還是「本來就不需要」？回答「忘了帶」的會自動記進黑歷史，下次我會幫你特別盯緊。`;
+
+  pending.forEach(it=>{
+    const row = document.createElement("div");
+    row.className = "rev-item";
+    row.innerHTML = `
+      <span class="rev-name">${it.emoji} ${esc(it.name)}</span>
+      <span class="rev-btns">
+        <button class="rev-btn bad">😱 真的忘了帶</button>
+        <button class="rev-btn">👌 不需要 / 有帶</button>
+      </span>`;
+    const [badBtn, okBtn] = row.querySelectorAll(".rev-btn");
+    badBtn.addEventListener("click", ()=>{
+      reviewResolved.set(it.name, "learned");
+      /* 寫入黑歷史（去掉數量字尾，去重） */
+      const cleanName = it.name.replace(/\s*×.*$/,"").replace(/：.*$/,"").trim().slice(0,20);
+      if(cleanName && !forgotItems.includes(cleanName)){
+        forgotItems.push(cleanName);
+        store.set("pk_forgot", forgotItems);
+        renderForgot();
+        refreshDashboard();
+      }
+      row.classList.add("learned");
+      row.querySelector(".rev-btns").outerHTML = `<span class="rev-result">🔁 已記入黑歷史，下次幫你盯！</span>`;
+      checkReviewDone();
+    });
+    okBtn.addEventListener("click", ()=>{
+      reviewResolved.set(it.name, "skipped");
+      row.classList.add("skipped");
+      row.querySelector(".rev-btns").outerHTML = `<span class="rev-result">✅ OK，這項不算漏帶</span>`;
+      checkReviewDone();
+    });
+    list.appendChild(row);
+  });
+}
+
+function checkReviewDone(){
+  const stillPending = currentItems.some(i=>!i.checked && !reviewResolved.has(i.name));
+  if(stillPending) return;
+  const learnedCount = [...reviewResolved.values()].filter(v=>v==="learned").length;
+  const done = $("reviewDone");
+  done.innerHTML = learnedCount
+    ? `🧠 回顧完成！AI 記住了 <b>${learnedCount}</b> 項忘帶紀錄，已寫進你的黑歷史——下次產生清單時會自動標示並提高風險，幫你盯緊！`
+    : `🎉 回顧完成！雖然有些東西沒勾，但都是不需要的——這趟實際上零漏帶，太強了！`;
+  done.classList.add("show");
+  toast(learnedCount ? `🧠 AI 學到了 ${learnedCount} 項新的黑歷史` : "🎉 這趟零漏帶！");
+}
+
+/* =========================================================
+   回程住宿遺漏檢查
+========================================================= */
+const HOTEL_SPOTS = {
+  default:[
+    {emoji:"🔌", name:"插座旁", items:["手機充電器","充電線","行動電源","轉接頭"]},
+    {emoji:"🚿", name:"浴室", items:["盥洗用品","隱形眼鏡盒","保養品","掛著的毛巾"]},
+    {emoji:"🚪", name:"衣櫃", items:["掛著的外套","正式服裝","洗好晾的衣物","行李箱上層"]},
+    {emoji:"🛏️", name:"床邊 / 床底", items:["手錶、飾品","睡衣","掉落的小物","枕頭下的東西"]},
+    {emoji:"🧊", name:"冰箱", items:["飲料","沒吃完的食物","要帶走的伴手禮甜點"]},
+    {emoji:"🔐", name:"保險箱", items:["護照","現金","貴重物品","記得歸零密碼"]},
+  ],
+  hostel:[
+    {emoji:"🔒", name:"置物櫃", items:["貴重物品","充電器","記得帶走鎖頭"]},
+    {emoji:"🛏️", name:"床位周圍", items:["床頭掛勾的包包","插座上的充電線","耳塞眼罩","床簾後的衣物"]},
+    {emoji:"🚿", name:"公共浴室", items:["盥洗包","快乾毛巾","拖鞋","洗好晾的衣物"]},
+    {emoji:"🍳", name:"公共廚房 / 冰箱", items:["自己的食物","水壺","環保餐具"]},
+  ],
+  camp:[
+    {emoji:"⛺", name:"帳篷內", items:["睡袋角落的小物","頭燈","手機充電線","耳塞"]},
+    {emoji:"🍳", name:"炊事區", items:["炊具餐具","調味料","垃圾要帶走"]},
+    {emoji:"🌳", name:"營位四周", items:["晾的衣物毛巾","營釘營繩","椅子小桌"]},
+    {emoji:"🚗", name:"車上", items:["行動電源","墨鏡","零食飲料"]},
+  ],
+  friend:[
+    {emoji:"🛏️", name:"客房", items:["充電器","睡衣","枕邊小物","衣櫃裡的外套"]},
+    {emoji:"🚿", name:"浴室", items:["自己的盥洗用品","隱形眼鏡用品","毛巾"]},
+    {emoji:"🛋️", name:"客廳", items:["充電中的手機","隨手放的錢包鑰匙","外套"]},
+    {emoji:"🚪", name:"玄關", items:["鞋子","雨傘","購物袋戰利品"]},
+  ],
+};
+function renderHotel(o){
+  const spots = HOTEL_SPOTS[o.lodging] || HOTEL_SPOTS.default;
+  $("hotelIntro").textContent = {
+    hotel:"退房前，跟著 AI 把房間每個角落掃過一遍，東西不留在飯店！",
+    hostel:"青旅人多手雜，離開前照著這份清單巡一次床位和公共區域！",
+    bnb:"民宿空間像家一樣容易亂放東西，退房前每個角落都看一眼！",
+    camp:"收帳篷前最容易掉東西，照清單把營位巡一圈，垃圾也記得帶走！",
+    friend:"離開親友家前巡一次，把東西忘在這裡雖然拿得回來，但很糗 😂",
+  }[o.lodging];
+  const grid = $("spotGrid");
+  grid.innerHTML = "";
+
+  /* 個人化重點核對 */
+  const personalNames = [];
+  const seen = new Set();
+  const push = (it, label) => {
+    if(seen.has(it.name)) return;
+    seen.add(it.name);
+    personalNames.push({name: it.name, emoji: it.emoji, label});
+  };
+  currentItems.filter(i=>i.forgot).forEach(i=>push(i,"🔁 黑歷史"));
+  currentItems.filter(i=>i.mine).forEach(i=>push(i,"⭐ 必帶"));
+  currentItems.filter(i=>i.custom).forEach(i=>push(i,"✍️ 自加"));
+  currentItems.filter(i=>i.ai && i.risk!=="low").forEach(i=>push(i,"🤖 AI"));
+  currentItems.filter(i=>i.risk==="high").forEach(i=>push(i,""));
+  const personalShow = personalNames.slice(0, 14);
+  if(personalShow.length){
+    const div = document.createElement("div");
+    div.className = "spot personal";
+    div.innerHTML = `<h3>🎒 你的清單重點核對（依你的個人清單產生）</h3>
+      <p style="font-size:.82rem;color:var(--ink-soft);margin-bottom:10px">這些是你清單裡「曾忘帶、個人必帶、自己加的、完蛋級」的物品，離開前逐一確認它們真的在行李裡：</p>
+      <div class="items-inline">` +
+      personalShow.map(p=>`
+        <label class="item">
+          <input type="checkbox">
+          <span class="iname">${p.emoji} ${esc(p.name)}</span>
+          ${p.label?`<span class="tags"><span class="tag ${p.label.includes("黑")?"forgot":p.label.includes("必帶")?"mine":"custom"}">${p.label}</span></span>`:""}
+        </label>`).join("") +
+      `</div>`;
+    grid.appendChild(div);
+  }
+
+  spots.forEach(s=>{
+    const div = document.createElement("div");
+    div.className = "spot";
+    div.innerHTML = `<h3>${s.emoji} ${s.name}</h3>` +
+      s.items.map(i=>`<label class="item"><input type="checkbox"><span class="iname">${i}</span></label>`).join("");
+    grid.appendChild(div);
+  });
+  grid.querySelectorAll("input").forEach(cb=>{
+    cb.addEventListener("change", e=>{
+      e.target.closest(".item").classList.toggle("done", e.target.checked);
+    });
+  });
+}
+
+/* =========================================================
+   打包小撇步（原空間試算精簡而來，併入 AI 提醒事項）
+========================================================= */
+function renderTips(o){
+  const tips = [];
+  const A = x => o.activities.includes(x);
+  if(o.transport==="plane"){
+    tips.push({e:"🧴", t:"液體記得分裝", d:"隨身行李液體每瓶不能超過 100ml，要裝透明夾鏈袋；大瓶的放託運。行動電源一定要隨身！"});
+  }
+  if(o.shop!=="none"){
+    tips.push({e:"🎁", t:"伴手禮空間策略", d:o.shop==="heavy" ? "去程行李壓到最少，留至少一半空間給戰利品，並帶一個可摺疊備用袋。" : "去程保留約 1/3 空間，或帶一個可摺疊備用袋，回程就不會上演行李箱坐不上去的戲碼。"});
+  }
+  if(o.shop==="heavy"){
+    tips.push({e:"⚖️", t:"回程限重要顧", d:"大量購物記得查航空公司限重，行李秤隨時量；超重費常比商品還貴，必要時改用當地寄送服務。"});
+  }
+  if(o.days>=5) tips.push({e:"👕", t:"衣服帶一半就好", d:`${o.days} 天的行程，當地簡單手洗或送洗，行李直接輕一半。`});
+  if(o.season==="winter") tips.push({e:"🧥", t:"厚外套穿身上", d:"最厚的外套直接穿著或拿手上，省下的空間超有感。"});
+  if(A("beach")) tips.push({e:"💧", t:"濕衣物收納", d:"準備防水袋或夾鏈袋，回程裝濕泳衣毛巾，不弄濕其他衣物。"});
+  if(A("camping")||o.lodging==="camp") tips.push({e:"⛺", t:"露營裝備佔空間", d:"帳篷睡袋用壓縮袋收納，重的裝備放靠輪子那側比較好拉。"});
+  if(A("business")) tips.push({e:"👔", t:"正式服裝防皺", d:"西裝襯衫用捲的或加防皺袋，抵達先掛起來，浴室蒸氣也能除皺。"});
+  if(o.cap==="bag") tips.push({e:"🎒", t:"背包客模式", d:"小背包空間珍貴，每樣東西問自己三次「真的會用到嗎」，分裝瓶和多功能單品是你的好朋友。"});
+  if(["s28","s30","s32"].includes(o.cap)) tips.push({e:"🧳", t:"大行李箱別貪心", d:`${CAP_TEXT[o.cap]}空間很大，但裝越滿越重，搬上下樓梯和月台會後悔——留點餘裕最舒服。`});
+  if(!tips.length) tips.push({e:"✨", t:"輕裝上路", d:"這趟行程條件單純，照清單帶齊就好，行李越輕旅行品質越好！"});
+  $("tipList").innerHTML = tips.map(t=>`
+    <div class="tip-row"><div class="emoji">${t.e}</div><div><b>${t.t}</b><small>${t.d}</small></div></div>`).join("");
+}
+
+/* =========================================================
+   AI 行李建議
+========================================================= */
+function renderAdvice(o){
+  const A = v => o.activities.includes(v);
+  const B = v => o.body.includes(v);
+  const must = [], less = [], local = [];
+
+  must.push({t:"手機＋充電器", d:"現代人的旅行命脈，沒電等於失聯加迷路。"});
+  must.push({t:"家門鑰匙", d:"旅行再完美，回家進不了門就全毀了。"});
+  if(A("abroad")||o.transport==="plane") must.push({t:"護照／證件", d:"出國的命根子，順手拍照備份一份存雲端。"});
+  if(B("meds")) must.push({t:"固定藥物", d:"當地買不到一樣的，多帶兩天份，隨身行李也放一份。"});
+  else must.push({t:"個人常用藥", d:"身體的事不能賭，小小一包換整趟安心。"});
+  if(B("lens")) must.push({t:"隱形眼鏡組", d:"鏡片、藥水、備用眼鏡缺一不可，看不清楚什麼景點都白去。"});
+  if(forgotItems.length) must.push({t:`你的黑歷史：${forgotItems.slice(0,2).join("、")}`, d:"以前忘過的東西最容易再忘一次，出門前最後再摸一次確認。"});
+  if(A("concert")) must.push({t:"演唱會門票", d:"它就是這趟旅行的意義本身，現在就確認位置。"});
+  if(o.lodging==="hostel") must.push({t:"鎖頭＋拖鞋", d:"青旅生存二寶，置物櫃不上鎖等於考驗人性。"});
+
+  if(o.days>=4||o.style==="minimal") less.push({t:"衣服帶一半就好", d:"當地簡單手洗，行李輕一半，極簡派的你應該深有同感。"});
+  else less.push({t:"備用衣物別貪心", d:"短天數帶一套備用就夠，「以防萬一」是行李變重的元兇。"});
+  if(o.lodging==="hotel") less.push({t:"盥洗備品", d:"飯店都有提供，特別講究再自帶，不然就是白扛。"});
+  less.push({t:"全瓶保養品", d:"改分裝瓶或試用包，瓶瓶罐罐是空間殺手。"});
+  less.push({t:"「也許會看」的書", d:"誠實一點，通常一頁都不會翻，帶一本真的會看的就好。"});
+  if(o.style==="shop"||o.shop==="heavy") less.push({t:"出發時的所有東西", d:"購物派的行李哲學：去程越空，回程越爽。"});
+  if(o.season==="summer") less.push({t:"厚重衣物", d:"一件冷氣房薄外套就夠，厚外套留在家。"});
+
+  local.push({t:"零食和飲料", d:"邊逛邊買才是旅行的樂趣，行李空間留給戰利品。"});
+  if(o.lodging==="hotel") local.push({t:"牙刷沐浴乳", d:"飯店多半有，便利商店也隨處買得到。"});
+  if(o.season!=="rainy") local.push({t:"雨傘", d:"真的下雨再買就好，帶著沒下雨最佔空間。"});
+  if(A("abroad")) local.push({t:"當地網卡", d:"機場就買得到，出發前先比價常常更便宜。"});
+  if(A("beach")) local.push({t:"浮潛裝備", d:"當地租借又便宜又方便，不用扛蛙鞋飛來飛去。"});
+  if(A("camping")||o.lodging==="camp") local.push({t:"食材和木柴", d:"到營地附近採買最新鮮，也省得在路上悶壞。"});
+  if(o.lodging==="friend") local.push({t:"伴手禮（當地名產）", d:"快到的時候在當地買最新鮮，也省去一路扛的辛苦。"});
+  if(A("family")) local.push({t:"尿布濕紙巾補給", d:"帶頭兩天的量就好，當地超市都補得到。"});
+
+  $("adviceIntro").innerHTML = pick([
+    `🤖 你是「${STYLE_TEXT[o.style]}」風格的旅人，我照這個邏輯幫你做了取捨：`,
+    "🤖 打包前先聽我一句～東西不是帶越多越安心，帶「對」才是真本事：",
+    "🤖 根據你的行程和習慣，東西分成三類，照這個原則打包準沒錯："
+  ]);
+  const fill = (id, arr) => $(id).innerHTML = arr.slice(0,5).map(x=>`<li><b>${esc(x.t)}</b><small>${x.d}</small></li>`).join("");
+  fill("adviceMust", must);
+  fill("adviceLess", less);
+  fill("adviceLocal", local);
+}
+
+/* AI 生成的建議資料（混合式：AI 成功時使用） */
+function renderAdviceData(advice, o){
+  const norm = arr => (Array.isArray(arr) ? arr : [])
+    .filter(x=>x && (x.t||x.title))
+    .map(x=>({t:String(x.t||x.title), d:String(x.d||x.desc||"")}))
+    .slice(0,5);
+  const must = norm(advice.must), less = norm(advice.less), local = norm(advice.local);
+  if(!must.length && !less.length && !local.length){ renderAdvice(o); return; }
+  $("adviceIntro").innerHTML = `🤖 Gemini AI 針對「${esc(o.dest)}」與你的「${STYLE_TEXT[o.style]}」風格，即時生成的取捨建議：`;
+  const fill = (id, arr) => $(id).innerHTML = arr.map(x=>`<li><b>${esc(x.t)}</b><small>${esc(x.d)}</small></li>`).join("");
+  fill("adviceMust", must);
+  fill("adviceLess", less);
+  fill("adviceLocal", local);
+}
+
+/* =========================================================
+   啟動
+========================================================= */
+updateLocks();
+updateProgress();
+updateAiBadge();
+navTo(location.hash.replace("#","") || "dashboard", false);
+</script>
+
+
+</body>
+</html>
